@@ -1,19 +1,18 @@
 /**
  * Boss Timer v2 – Google Apps Script backend
  * -------------------------------------------
- * วิธีอัปเดตจากเวอร์ชันเดิม:
- *  1) ลบโค้ดเดิมทั้งหมดใน Apps Script แล้ววางไฟล์นี้ทั้งไฟล์ > Ctrl+S
- *  2) เลือกฟังก์ชัน setup > กด "เรียกใช้" (จะสร้างชีต Bosses / Events และแปลงชีตเดิมให้อัตโนมัติ
- *     ข้อมูลเดิมไม่หาย)
- *  3) การทำให้ใช้งานได้ > จัดการการทำให้ใช้งานได้ > ✏️ > เวอร์ชัน: "เวอร์ชันใหม่" > ทำให้ใช้งานได้
- *     (URL เดิมใช้ต่อได้เลย)
+ * How to update:
+ *  1) Delete all old code in Apps Script, paste this whole file > Ctrl+S
+ *  2) Select function "setup" > Run (creates/updates sheets automatically, existing data is kept)
+ *  3) Deploy > Manage deployments > ✏️ > Version: "New version" > Deploy
+ *     (the Web app URL stays the same)
  */
 
-// รหัสลับ (ไม่บังคับ) ถ้าใส่ ต้องใส่ค่าเดียวกันในหน้า "ตั้งค่า" ของโปรแกรมด้วย
-// แนะนำให้ตั้ง เพราะเวอร์ชันนี้มีระบบแอดมินที่แก้ไข/ลบข้อมูลได้
+// Secret key (optional). If set, enter the same key in the app's Settings page.
+// Recommended, because the Admin tools can edit/delete data.
 const SECRET_KEY = '';
 
-// บอส/กิจกรรมเดียวกัน ที่เวลาห่างกันไม่เกินกี่นาที ให้ถือว่าเป็น "รอบเดียวกัน"
+// Same boss/event within this many minutes = treated as the same run (duplicate check)
 const DUP_WINDOW_MIN = 10;
 
 const SH = {
@@ -21,7 +20,8 @@ const SH = {
   bosses: 'Bosses',
   events: 'Events',
   att: 'Attendance',
-  sum: 'Summary'
+  sum: 'Summary',
+  audit: 'AuditLog'
 };
 
 const HEAD = {
@@ -29,10 +29,11 @@ const HEAD = {
   bosses: ['Boss Name', 'Points'],
   events: ['Event Name', 'Points'],
   att: ['Session ID', 'Recorded At', 'Time', 'Boss / Event', 'Points',
-        'Member', 'Contribution', 'Recorded By', 'Type']
+        'Member', 'Contribution', 'Recorded By', 'Type'],
+  audit: ['Time', 'Action', 'By', 'Device', 'Category', 'Target', 'Session ID', 'Detail']
 };
 
-// บอสตั้งต้น (ใส่ให้เฉพาะตอนสร้างชีต Bosses ครั้งแรก แก้ไขได้ในหน้าแอดมิน)
+// Starter bosses (only added when the Bosses sheet is first created; edit in Admin)
 const DEFAULT_BOSSES = [
   ['Kelsus', 2], ['Tromba', 1], ['INV_Gahareth', 2], ['Hisilrome', 2], ['Selu', 2],
   ['Chertuba', 1], ['INV_Matura', 1], ['INV_Hisilrome', 2], ['Pan Narod', 1]
@@ -42,7 +43,7 @@ const DEFAULT_BOSSES = [
 
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) throw new Error('ต้องสร้างสคริปต์นี้จากเมนู ส่วนขยาย > Apps Script ภายใน Google Sheet');
+  if (!ss) throw new Error('This script must be created from inside a Google Sheet: Extensions > Apps Script');
 
   // ---- Members ----
   let m = ss.getSheetByName(SH.members);
@@ -50,7 +51,7 @@ function setup() {
     m = ss.insertSheet(SH.members);
     writeHead_(m, HEAD.members);
   } else if (String(m.getRange(1, 2).getValue()).trim() === 'Note') {
-    // แปลงจากเวอร์ชัน 1 (Name, Note) -> (Name, Status, Joined Date, Note)
+    // Upgrade from v1 (Name, Note) -> (Name, Status, Joined Date, Note)
     m.insertColumnsAfter(1, 2);
     writeHead_(m, HEAD.members);
     const n = m.getLastRow() - 1;
@@ -82,13 +83,22 @@ function setup() {
     a = ss.insertSheet(SH.att);
     writeHead_(a, HEAD.att);
   } else if (String(a.getRange(1, 9).getValue()).trim() !== 'Type') {
-    // แปลงจากเวอร์ชัน 1: เพิ่มคอลัมน์ Type ให้ข้อมูลเดิมเป็น Boss
+    // Upgrade from v1: add Type column, old rows = Boss
     writeHead_(a, HEAD.att);
     const n = a.getLastRow() - 1;
     if (n > 0) a.getRange(2, 9, n, 1).setValue('Boss');
   }
   a.getRange('C:C').setNumberFormat('yyyy-mm-dd hh:mm');
   a.getRange('G:G').setNumberFormat('#,##0');
+
+  // ---- AuditLog (who added/removed/edited what) ----
+  let lg = ss.getSheetByName(SH.audit);
+  if (!lg) {
+    lg = ss.insertSheet(SH.audit);
+    writeHead_(lg, HEAD.audit);
+    lg.getRange('A:A').setNumberFormat('yyyy-mm-dd hh:mm:ss');
+    lg.setColumnWidth(8, 520);
+  }
 
   // ---- Summary ----
   let s = ss.getSheetByName(SH.sum);
@@ -109,7 +119,7 @@ function writeHead_(sheet, headers) {
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  if (!checkKey_(p.key)) return json_({ ok: false, error: 'รหัสลับไม่ถูกต้อง' });
+  if (!checkKey_(p.key)) return json_({ ok: false, error: 'Wrong secret key' });
   try {
     switch (p.action) {
       case 'bootstrap':
@@ -118,10 +128,12 @@ function doGet(e) {
         return json_({ ok: true, members: getMembers_() });
       case 'history':
         return json_({ ok: true, history: getHistory_(Number(p.limit) || 50, p.type) });
+      case 'audit':
+        return json_({ ok: true, log: getAudit_(p.sessionId, Number(p.limit) || 300, p.category) });
       case 'recap':
         return json_(Object.assign({ ok: true }, getRecap_(p.type, p.from, p.to)));
       default:
-        return json_({ ok: true, message: 'Boss Timer API v2 พร้อมใช้งาน' });
+        return json_({ ok: true, message: 'Boss Timer API v2 is ready' });
     }
   } catch (err) {
     return json_({ ok: false, error: String(err.message || err) });
@@ -131,10 +143,10 @@ function doGet(e) {
 function doPost(e) {
   let body;
   try { body = JSON.parse(e.postData.contents); }
-  catch (err) { return json_({ ok: false, error: 'ข้อมูลที่ส่งมาไม่ใช่ JSON' }); }
-  if (!checkKey_(body.key)) return json_({ ok: false, error: 'รหัสลับไม่ถูกต้อง' });
+  catch (err) { return json_({ ok: false, error: 'Request is not valid JSON' }); }
+  if (!checkKey_(body.key)) return json_({ ok: false, error: 'Wrong secret key' });
 
-  // OCR ไม่ต้องล็อก (ให้หลายคนสแกนพร้อมกันได้)
+  // OCR runs without the lock (many people can scan at once)
   if (body.action === 'ocr') {
     try { return json_(googleOcr_(body)); }
     catch (err) { return json_({ ok: false, error: String(err.message || err) }); }
@@ -143,19 +155,23 @@ function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
+    const before = auditBefore_(body);   // snapshot before changes, for the audit log
+    let res;
     switch (body.action) {
-      case 'attendance':        return json_(saveAttendance_(body));
-      case 'addToSession':      return json_(addToSession_(body));
-      case 'removeFromSession': return json_(removeFromSession_(body));
-      case 'deleteSession':     return json_(deleteSession_(body));
-      case 'saveMember':        return json_(saveMember_(body));
-      case 'deleteMember':      return json_(deleteMember_(body));
-      case 'addAlias':          return json_(addAlias_(body));
-      case 'addMembers':        return json_(addMembers_(body.names || []));
-      case 'saveCatalog':       return json_(saveCatalog_(body));
-      case 'deleteCatalog':     return json_(deleteCatalog_(body));
-      default: return json_({ ok: false, error: 'ไม่รู้จักคำสั่ง: ' + body.action });
+      case 'attendance':        res = saveAttendance_(body); break;
+      case 'addToSession':      res = addToSession_(body); break;
+      case 'removeFromSession': res = removeFromSession_(body); break;
+      case 'deleteSession':     res = deleteSession_(body); break;
+      case 'saveMember':        res = saveMember_(body); break;
+      case 'deleteMember':      res = deleteMember_(body); break;
+      case 'addAlias':          res = addAlias_(body); break;
+      case 'addMembers':        res = addMembers_(body.names || []); break;
+      case 'saveCatalog':       res = saveCatalog_(body); break;
+      case 'deleteCatalog':     res = deleteCatalog_(body); break;
+      default: return json_({ ok: false, error: 'Unknown action: ' + body.action });
     }
+    if (res && res.ok) { try { audit_(body, before, res); } catch (e) { console.error('audit failed', e); } }
+    return json_(res);
   } catch (err) {
     return json_({ ok: false, error: String(err.message || err) });
   } finally {
@@ -182,7 +198,7 @@ function getMembers_() {
 
 function saveMember_(b) {
   const name = String(b.name || '').trim();
-  if (!name) throw new Error('กรุณาใส่ชื่อสมาชิก');
+  if (!name) throw new Error('Please enter a member name');
   const status = b.status === 'Inactive' ? 'Inactive' : 'Active';
   const joined = parseDate_(b.joined) || new Date();
   const values = [[name, status, joined, String(b.note || ''), normAlias_(b.alias)]];
@@ -191,18 +207,18 @@ function saveMember_(b) {
 
   if (b.original) {
     const row = findRow_('members', b.original);
-    if (!row) throw new Error('ไม่พบสมาชิก ' + b.original);
-    if (dup && dup.row !== row.row) throw new Error('มีชื่อ ' + name + ' อยู่แล้ว');
+    if (!row) throw new Error('Member not found: ' + b.original);
+    if (dup && dup.row !== row.row) throw new Error(name + ' already exists');
     sheet.getRange(row.row, 1, 1, 5).setValues(values);
     if (String(b.original).trim() !== name) renameInAttendance_(b.original, name);
   } else {
-    if (dup) throw new Error('มีชื่อ ' + name + ' อยู่แล้ว');
+    if (dup) throw new Error(name + ' already exists');
     sheet.getRange(sheet.getLastRow() + 1, 1, 1, 5).setValues(values);
   }
   return { ok: true, members: getMembers_() };
 }
 
-/** เปลี่ยนชื่อในประวัติทั้งหมดด้วย เมื่อแก้ชื่อสมาชิก */
+/** Rename the member in all past runs too */
 function renameInAttendance_(from, to) {
   const s = sheet_('att');
   const last = s.getLastRow();
@@ -219,18 +235,18 @@ function renameInAttendance_(from, to) {
 
 function deleteMember_(b) {
   const row = findRow_('members', b.name);
-  if (!row) throw new Error('ไม่พบสมาชิก ' + b.name);
+  if (!row) throw new Error('Member not found: ' + b.name);
   sheet_('members').deleteRow(row.row);
   return { ok: true, members: getMembers_() };
 }
 
-/** เพิ่มชื่อที่ OCR อ่านผิด เป็น Alias ของสมาชิก (สอนระบบ) */
+/** Save an OCR misread as an alias of a member (teaches the scanner) */
 function addAlias_(b) {
   const row = findRow_('members', b.name);
-  if (!row) throw new Error('ไม่พบสมาชิก ' + b.name);
+  if (!row) throw new Error('Member not found: ' + b.name);
   const cur = normAlias_(row.v[4]).split(', ').filter(String);
   const add = String(b.alias || '').trim();
-  if (!add) throw new Error('ไม่มีชื่อที่จะเพิ่ม');
+  if (!add) throw new Error('Nothing to add');
   if (cur.map(function (x) { return x.toLowerCase(); }).indexOf(add.toLowerCase()) === -1) cur.push(add);
   sheet_('members').getRange(row.row, 5).setValue(cur.join(', '));
   return { ok: true, members: getMembers_() };
@@ -267,20 +283,20 @@ function getCatalog_(kind) {
 
 function saveCatalog_(b) {
   const kind = b.kind === 'events' ? 'events' : 'bosses';
-  const label = kind === 'events' ? 'กิจกรรม' : 'บอส';
+  const label = kind === 'events' ? 'Event' : 'Boss';
   const name = String(b.name || '').trim();
-  if (!name) throw new Error('กรุณาใส่ชื่อ' + label);
+  if (!name) throw new Error('Please enter a ' + label.toLowerCase() + ' name');
   const values = [[name, Number(b.points) || 0]];
   const sheet = sheet_(kind);
   const dup = findRow_(kind, name);
 
   if (b.original) {
     const row = findRow_(kind, b.original);
-    if (!row) throw new Error('ไม่พบ' + label + ' ' + b.original);
-    if (dup && dup.row !== row.row) throw new Error('มี' + label + 'ชื่อ ' + name + ' อยู่แล้ว');
+    if (!row) throw new Error(label + ' not found: ' + b.original);
+    if (dup && dup.row !== row.row) throw new Error(label + ' "' + name + '" already exists');
     sheet.getRange(row.row, 1, 1, 2).setValues(values);
   } else {
-    if (dup) throw new Error('มี' + label + 'ชื่อ ' + name + ' อยู่แล้ว');
+    if (dup) throw new Error(label + ' "' + name + '" already exists');
     sheet.getRange(sheet.getLastRow() + 1, 1, 1, 2).setValues(values);
   }
   return { ok: true, kind: kind, list: getCatalog_(kind) };
@@ -289,7 +305,7 @@ function saveCatalog_(b) {
 function deleteCatalog_(b) {
   const kind = b.kind === 'events' ? 'events' : 'bosses';
   const row = findRow_(kind, b.name);
-  if (!row) throw new Error('ไม่พบ ' + b.name);
+  if (!row) throw new Error('Not found: ' + b.name);
   sheet_(kind).deleteRow(row.row);
   return { ok: true, kind: kind, list: getCatalog_(kind) };
 }
@@ -299,23 +315,23 @@ function deleteCatalog_(b) {
 function saveAttendance_(b) {
   const list = (b.participants || []).filter(function (p) { return p && p.name; });
   const name = String(b.name || b.boss || '').trim();
-  if (!name) return { ok: false, error: 'ยังไม่ได้เลือกบอส/กิจกรรม' };
-  if (!list.length) return { ok: false, error: 'ยังไม่ได้เลือกสมาชิก' };
+  if (!name) return { ok: false, error: 'Pick a boss/event first' };
+  if (!list.length) return { ok: false, error: 'No members selected' };
 
   const sessionId = b.sessionId || Utilities.getUuid().slice(0, 8);
   if (sessionRows_(sessionId).length) {
-    return { ok: false, error: 'รอบนี้ถูกบันทึกไปแล้ว (Session ' + sessionId + ')' };
+    return { ok: false, error: 'This run was already saved (Session ' + sessionId + ')' };
   }
 
   const now = new Date();
   const time = b.killTime ? new Date(b.killTime) : now;
   const type = b.type === 'event' ? 'Event' : 'Boss';
-  const mode = b.dupMode || '';   // '' = ตรวจซ้ำก่อน, 'merge' | 'replace' | 'new'
+  const mode = b.dupMode || '';   // '' = check duplicates first, 'merge' | 'replace' | 'new'
 
-  // ---- ตรวจรอบซ้ำ: ชื่อเดียวกัน + ประเภทเดียวกัน + เวลาห่างกันไม่เกิน DUP_WINDOW_MIN นาที ----
+  // ---- Duplicate check: same name + same type + within DUP_WINDOW_MIN minutes ----
   if (!mode) {
     const dup = findDuplicate_(type, name, time);
-    if (dup) return { ok: false, duplicate: dup, error: 'พบรอบที่บันทึกไว้แล้วในช่วงเวลาใกล้กัน' };
+    if (dup) return { ok: false, duplicate: dup, error: 'A run was already saved around this time' };
   }
 
   if (mode === 'merge') return mergeIntoSession_(b.targetSessionId, list, b.recordedBy);
@@ -323,7 +339,7 @@ function saveAttendance_(b) {
   let replaced = 0;
   if (mode === 'replace') {
     const old = sessionRows_(b.targetSessionId);
-    if (!old.length) throw new Error('ไม่พบรอบเดิมที่จะแทนที่');
+    if (!old.length) throw new Error('Original run to replace not found');
     deleteRows_(old);
     replaced = old.length;
   }
@@ -336,7 +352,7 @@ function saveAttendance_(b) {
   return { ok: true, sessionId: sessionId, saved: rows.length, replaced: replaced };
 }
 
-/** หารอบที่บันทึกไว้แล้ว ของบอส/กิจกรรมเดียวกันในช่วงเวลาใกล้กัน */
+/** Find an existing run of the same boss/event close in time */
 function findDuplicate_(type, name, time) {
   const win = DUP_WINDOW_MIN * 60 * 1000;
   const n = String(name).toLowerCase();
@@ -349,7 +365,7 @@ function findDuplicate_(type, name, time) {
     if (isNaN(t) || Math.abs(t - time.getTime()) > win) return;
     const id = String(v[0]);
     if (!sessions[id]) sessions[id] = { sessionId: id, time: toIso_(v[2]), name: String(v[3]), points: Number(v[4]) || 0,
-                                        recordedBy: String(v[7]).replace(/ \((เพิ่มภายหลัง|รวมรอบ)\)$/, ''), members: [], diff: Math.abs(t - time.getTime()) };
+                                        recordedBy: String(v[7]).replace(/ \((เพิ่มภายหลัง|รวมรอบ|added later|merged)\)$/, ''), members: [], diff: Math.abs(t - time.getTime()) };
     sessions[id].members.push(String(v[5]));
   });
   const list = Object.keys(sessions).map(function (k) { return sessions[k]; })
@@ -357,10 +373,10 @@ function findDuplicate_(type, name, time) {
   return list.length ? list[0] : null;
 }
 
-/** รวมรายชื่อเข้ารอบเดิม: เพิ่มเฉพาะคนที่ยังไม่มี / อัปเดต Contribution ถ้าค่าใหม่มากกว่า */
+/** Merge into existing run: add only new people / update Contribution if higher */
 function mergeIntoSession_(targetId, list, recordedBy) {
   const rows = sessionRows_(targetId);
-  if (!rows.length) throw new Error('ไม่พบรอบเดิมที่จะรวม');
+  if (!rows.length) throw new Error('Original run to merge into not found');
   const s = sheet_('att');
   const t = rows[0].v;
   const byName = {};
@@ -377,7 +393,7 @@ function mergeIntoSession_(targetId, list, recordedBy) {
     } else {
       byName[key] = true;
       out.push([t[0], new Date(), t[2], t[3], t[4], String(p.name), c || '',
-                String(recordedBy || '') + ' (รวมรอบ)', t[8] || 'Boss']);
+                String(recordedBy || '') + ' (merged)', t[8] || 'Boss']);
       added++;
     }
   });
@@ -385,13 +401,13 @@ function mergeIntoSession_(targetId, list, recordedBy) {
   return { ok: true, merged: true, sessionId: targetId, added: added, updated: updated };
 }
 
-/** เพิ่มรายชื่อที่ตกหล่นเข้าไปในรอบที่บันทึกแล้ว */
+/** Add missed members to a saved run */
 function addToSession_(b) {
   const rows = sessionRows_(b.sessionId);
-  if (!rows.length) throw new Error('ไม่พบรอบที่ต้องการ');
+  if (!rows.length) throw new Error('Run not found');
   const t = rows[0].v;
   const have = rows.map(function (r) { return String(r.v[5]).toLowerCase(); });
-  const recorder = String(b.recordedBy || '') + ' (เพิ่มภายหลัง)';
+  const recorder = String(b.recordedBy || '') + ' (added later)';
   const out = [];
   (b.names || []).forEach(function (n) {
     n = String(n || '').trim();
@@ -409,14 +425,14 @@ function removeFromSession_(b) {
   const rows = sessionRows_(b.sessionId).filter(function (r) {
     return String(r.v[5]).toLowerCase() === target;
   });
-  if (!rows.length) throw new Error('ไม่พบ ' + b.name + ' ในรอบนี้');
+  if (!rows.length) throw new Error(b.name + ' is not in this run');
   deleteRows_(rows);
   return { ok: true, removed: rows.length };
 }
 
 function deleteSession_(b) {
   const rows = sessionRows_(b.sessionId);
-  if (!rows.length) throw new Error('ไม่พบรอบที่ต้องการ');
+  if (!rows.length) throw new Error('Run not found');
   deleteRows_(rows);
   return { ok: true, removed: rows.length };
 }
@@ -431,20 +447,31 @@ function getHistory_(limit, type) {
     if (!sessions[id]) {
       sessions[id] = {
         sessionId: id, recordedAt: toIso_(v[1]), time: toIso_(v[2]), name: String(v[3]),
-        points: Number(v[4]) || 0, recordedBy: String(v[7]).replace(/ \((เพิ่มภายหลัง|รวมรอบ)\)$/, ''),
+        points: Number(v[4]) || 0, recordedBy: String(v[7]).replace(/ \((เพิ่มภายหลัง|รวมรอบ|added later|merged)\)$/, ''),
         type: t, members: []
       };
       order.push(id);
     }
-    sessions[id].members.push({ name: String(v[5]), contribution: Number(v[6]) || 0 });
+    const by = String(v[7]);
+    const late = / \((เพิ่มภายหลัง|รวมรอบ|added later|merged)\)$/.test(by);
+    sessions[id].members.push({ name: String(v[5]), contribution: Number(v[6]) || 0,
+      late: late, by: late ? by.replace(/ \((เพิ่มภายหลัง|รวมรอบ|added later|merged)\)$/, '') : '', at: late ? toIso_(v[1]) : '' });
   });
-  return order.reverse().slice(0, limit).map(function (id) { return sessions[id]; });
+  const out = order.reverse().slice(0, limit).map(function (id) { return sessions[id]; });
+  // How many times each run was edited after saving (from AuditLog; also matches old Thai labels)
+  const edits = {};
+  rows_('audit').forEach(function (r) {
+    const sid = String(r.v[6]);
+    if (sid && ['บันทึกรอบใหม่', 'New run'].indexOf(String(r.v[1])) === -1) edits[sid] = (edits[sid] || 0) + 1;
+  });
+  out.forEach(function (x) { x.edits = edits[x.sessionId] || 0; });
+  return out;
 }
 
 /**
- * สรุปคะแนนตามช่วงเวลา
- * from / to = 'yyyy-MM-dd' (ตามเขตเวลาของชีต) เว้นว่าง = ไม่จำกัด
- * คืนค่า recap (รายคน), days (รายวัน), sessions (รายรอบ)
+ * Leaderboard for a date range
+ * from / to = 'yyyy-MM-dd' (sheet time zone), empty = no limit
+ * Returns recap (per member), days (per day), sessions (per run)
  */
 function getRecap_(type, from, to) {
   const tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
@@ -465,18 +492,18 @@ function getRecap_(type, from, to) {
 
     const pts = Number(v[4]) || 0, dmg = Number(v[6]) || 0, id = String(v[0]);
 
-    // รายคน
+    // per member
     const key = String(v[5]).toLowerCase();
     if (!map[key]) map[key] = { name: String(v[5]), points: 0, count: 0, boss: 0, event: 0, contribution: 0, _d: {} };
     const x = map[key];
     x.points += pts; x.count += 1; x[t] += 1; x.contribution += dmg; x._d[day] = 1;
 
-    // รายวัน
+    // per day
     if (!days[day]) days[day] = { date: day, attend: 0, bossAttend: 0, eventAttend: 0, points: 0, _s: {} };
     const d = days[day];
     d.attend += 1; d[t + 'Attend'] += 1; d.points += pts; d._s[id] = t;
 
-    // รายรอบ
+    // per run
     if (!sessions[id]) sessions[id] = { sessionId: id, time: toIso_(tm), day: day, name: String(v[3]), type: t, points: pts, count: 0, contribution: 0 };
     sessions[id].count += 1; sessions[id].contribution += dmg;
   });
@@ -503,17 +530,180 @@ function getRecap_(type, from, to) {
   return { recap: recap, days: dayList, sessions: sessionList };
 }
 
+/* ======================= AUDIT LOG ======================= */
+
+function sessionInfo_(id) {
+  const rows = sessionRows_(id);
+  if (!rows.length) return null;
+  const v = rows[0].v;
+  return {
+    name: String(v[3]), time: toIso_(v[2]), type: String(v[8] || 'Boss'), points: Number(v[4]) || 0,
+    members: rows.map(function (r) { return { name: String(r.v[5]), contribution: Number(r.v[6]) || 0 }; })
+  };
+}
+
+/** Snapshot data before a change, for the audit log (e.g. removed names, old values) */
+function auditBefore_(b) {
+  switch (b.action) {
+    case 'addToSession': case 'removeFromSession': case 'deleteSession':
+      return { session: sessionInfo_(b.sessionId) };
+    case 'attendance':
+      return b.targetSessionId ? { session: sessionInfo_(b.targetSessionId) } : {};
+    case 'saveMember': case 'deleteMember': case 'addAlias': {
+      const key = String(b.original || b.name || '').toLowerCase();
+      return { member: getMembers_().filter(function (m) { return m.name.toLowerCase() === key; })[0] || null };
+    }
+    case 'addMembers':
+      return { names: getMembers_().map(function (m) { return m.name.toLowerCase(); }) };
+    case 'saveCatalog': case 'deleteCatalog': {
+      const kind = b.kind === 'events' ? 'events' : 'bosses';
+      const key = String(b.original || b.name || '').toLowerCase();
+      return { item: getCatalog_(kind).filter(function (x) { return x.name.toLowerCase() === key; })[0] || null };
+    }
+  }
+  return {};
+}
+
+function audit_(b, bf, r) {
+  const tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  const when = function (iso) { return iso ? Utilities.formatDate(new Date(iso), tz, 'dd/MM HH:mm') : ''; };
+  const list = function (arr) { return arr.map(function (m) { return m.contribution ? m.name + ' (' + m.contribution + ')' : m.name; }).join(', '); };
+  const S = bf.session;
+  let action = '', cat = '', target = '', sid = '', detail = '';
+
+  switch (b.action) {
+    case 'attendance': {
+      cat = 'Run'; target = String(b.name || b.boss || '');
+      const parts = (b.participants || []).filter(function (p) { return p && p.name; })
+        .map(function (p) { return { name: String(p.name), contribution: Number(p.contribution) || 0 }; });
+      if (r.merged) {
+        action = 'Merged into run'; sid = r.sessionId;
+        const have = (S ? S.members : []).map(function (m) { return m.name.toLowerCase(); });
+        const added = parts.filter(function (p) { return have.indexOf(p.name.toLowerCase()) === -1; });
+        detail = 'Added ' + r.added + ': ' + (list(added) || '-') + ' · DMG updated for ' + r.updated;
+      } else if (r.replaced) {
+        action = 'Replaced run'; sid = r.sessionId;
+        detail = 'Old run ' + (S ? when(S.time) + ' ' + S.members.length + ' players: ' + list(S.members) : '') +
+                 ' → New ' + parts.length + ' players: ' + list(parts);
+      } else {
+        action = 'New run'; sid = r.sessionId;
+        detail = when(b.killTime) + ' · ' + (Number(b.points) || 0) + ' pts · ' + parts.length + ' players: ' + list(parts);
+      }
+      break;
+    }
+    case 'addToSession': {
+      action = 'Added to run'; cat = 'Run'; sid = b.sessionId; target = S ? S.name : '';
+      const have = (S ? S.members : []).map(function (m) { return m.name.toLowerCase(); });
+      const added = (b.names || []).filter(function (n) { return n && have.indexOf(String(n).toLowerCase()) === -1; });
+      detail = (S ? when(S.time) + ' · ' : '') + 'Added ' + added.length + ': ' + added.join(', ');
+      break;
+    }
+    case 'removeFromSession': {
+      action = 'Removed from run'; cat = 'Run'; sid = b.sessionId; target = S ? S.name : '';
+      const m = S ? S.members.filter(function (x) { return x.name.toLowerCase() === String(b.name).toLowerCase(); })[0] : null;
+      detail = (S ? when(S.time) + ' · ' : '') + 'Removed: ' + b.name + (m && m.contribution ? ' (DMG ' + m.contribution + ')' : '');
+      break;
+    }
+    case 'deleteSession':
+      action = 'Deleted run'; cat = 'Run'; sid = b.sessionId; target = S ? S.name : '';
+      detail = S ? when(S.time) + ' · ' + S.points + ' pts · ' + S.members.length + ' players: ' + list(S.members) : '';
+      break;
+    case 'saveMember': {
+      cat = 'Member'; target = String(b.name);
+      const o = bf.member;
+      if (b.original && o) {
+        action = 'Edited member';
+        const ch = [];
+        if (o.name !== String(b.name).trim()) ch.push('Name: ' + o.name + ' → ' + b.name);
+        if (o.status !== (b.status === 'Inactive' ? 'Inactive' : 'Active')) ch.push('Status: ' + o.status + ' → ' + b.status);
+        if ((o.joined || '') !== (b.joined || o.joined)) ch.push('Joined: ' + o.joined + ' → ' + b.joined);
+        if ((o.note || '') !== String(b.note || '')) ch.push('Note: ' + (o.note || '-') + ' → ' + (b.note || '-'));
+        if (normAlias_(o.alias) !== normAlias_(b.alias)) ch.push('Alias: ' + (o.alias || '-') + ' → ' + (normAlias_(b.alias) || '-'));
+        detail = ch.join(' · ') || 'No changes';
+      } else {
+        action = 'Added member';
+        detail = 'Status ' + (b.status || 'Active') + ' · Joined ' + (b.joined || '') + (b.note ? ' · Note ' + b.note : '');
+      }
+      break;
+    }
+    case 'deleteMember': {
+      action = 'Deleted member'; cat = 'Member'; target = String(b.name);
+      const o = bf.member;
+      detail = o ? 'Status ' + o.status + ' · Joined ' + o.joined + (o.note ? ' · Note ' + o.note : '') + (o.alias ? ' · Alias ' + o.alias : '') : '';
+      break;
+    }
+    case 'addAlias':
+      action = 'Added alias'; cat = 'Member'; target = String(b.name);
+      detail = '"' + b.alias + '" → ' + b.name;
+      break;
+    case 'addMembers': {
+      action = 'Added members (bulk)'; cat = 'Member';
+      const had = bf.names || [];
+      const added = (b.names || []).map(function (n) { return String(n).trim(); })
+        .filter(function (n) { return n && had.indexOf(n.toLowerCase()) === -1; });
+      if (!added.length) return;
+      target = added.length + ' players'; detail = added.join(', ');
+      break;
+    }
+    case 'saveCatalog': case 'deleteCatalog': {
+      const label = b.kind === 'events' ? 'event' : 'boss';
+      const Label = b.kind === 'events' ? 'Event' : 'Boss';
+      cat = Label; target = String(b.name);
+      const o = bf.item;
+      if (b.action === 'deleteCatalog') { action = 'Deleted ' + label; detail = o ? o.points + ' pts' : ''; }
+      else if (b.original && o) {
+        action = 'Edited ' + label;
+        const ch = [];
+        if (o.name !== String(b.name).trim()) ch.push('Name: ' + o.name + ' → ' + b.name);
+        if (o.points !== (Number(b.points) || 0)) ch.push('Points: ' + o.points + ' → ' + b.points);
+        detail = ch.join(' · ') || 'No changes';
+      } else { action = 'Added ' + label; detail = (Number(b.points) || 0) + ' pts'; }
+      break;
+    }
+    default: return;
+  }
+
+  const s = sheet_('audit');
+  s.getRange(s.getLastRow() + 1, 1, 1, HEAD.audit.length).setValues([[
+    new Date(), action, String(b.recordedBy || '(no name)'), String(b.device || ''),
+    cat, target, sid, detail
+  ]]);
+}
+
+// Old Thai labels from earlier versions -> English (so old log rows display in English)
+const OLD_LABELS = {
+  'บันทึกรอบใหม่': 'New run', 'รวมเข้ารอบเดิม': 'Merged into run', 'แทนที่รอบ': 'Replaced run',
+  'เพิ่มชื่อในรอบ': 'Added to run', 'เอาชื่อออกจากรอบ': 'Removed from run', 'ลบรอบ': 'Deleted run',
+  'เพิ่มสมาชิก': 'Added member', 'แก้ไขสมาชิก': 'Edited member', 'ลบสมาชิก': 'Deleted member',
+  'เพิ่ม Alias': 'Added alias', 'เพิ่มสมาชิก (หลายคน)': 'Added members (bulk)',
+  'เพิ่มบอส': 'Added boss', 'แก้ไขบอส': 'Edited boss', 'ลบบอส': 'Deleted boss',
+  'เพิ่มกิจกรรม': 'Added event', 'แก้ไขกิจกรรม': 'Edited event', 'ลบกิจกรรม': 'Deleted event',
+  'รอบ': 'Run', 'สมาชิก': 'Member', 'บอส': 'Boss', 'กิจกรรม': 'Event'
+};
+const en_ = function (x) { x = String(x); return OLD_LABELS[x] || x; };
+
+function getAudit_(sessionId, limit, category) {
+  return rows_('audit')
+    .filter(function (r) { return r.v[1] && (!sessionId || String(r.v[6]) === String(sessionId)) && (!category || en_(r.v[4]) === category); })
+    .reverse().slice(0, limit)
+    .map(function (r) {
+      const v = r.v;
+      return { time: toIso_(v[0]), action: en_(v[1]), by: String(v[2]), device: String(v[3]),
+               category: en_(v[4]), target: String(v[5]), sessionId: String(v[6]), detail: String(v[7]) };
+    });
+}
+
 /* ======================= GOOGLE OCR ======================= */
 /**
- * อ่านตัวหนังสือจากภาพด้วย OCR ของ Google (ผ่าน Google Drive) ใช้ฟรี
- * ต้องเปิดบริการ "Drive API" ในหน้า Apps Script ก่อน (เมนูซ้าย: บริการ / Services > + > Drive API)
+ * Read text from an image with Google's free OCR (via Google Drive)
+ * Requires the "Drive API" service: Apps Script left menu > Services > + > Drive API
  */
 function googleOcr_(b) {
   if (typeof Drive === 'undefined') {
-    throw new Error('ยังไม่ได้เปิด Drive API ใน Apps Script (บริการ > + > Drive API > เพิ่ม) แล้ว Deploy เวอร์ชันใหม่');
+    throw new Error('Drive API is not enabled in Apps Script (Services > + > Drive API > Add), then Deploy a new version');
   }
   const b64 = String(b.image || '').replace(/^data:image\/\w+;base64,/, '');
-  if (!b64) throw new Error('ไม่มีภาพที่จะอ่าน');
+  if (!b64) throw new Error('No image to read');
   const blob = Utilities.newBlob(Utilities.base64Decode(b64), b.mime || 'image/png', 'bt-ocr.png');
   const lang = String(b.lang || 'en');
   let id = null;
@@ -534,12 +724,12 @@ function googleOcr_(b) {
   }
 }
 
-/** ทดสอบ OCR จากหน้า Apps Script: เลือกฟังก์ชันนี้แล้วกด "เรียกใช้" เพื่อให้สิทธิ์ Drive/Docs */
+/** Test OCR from the Apps Script editor: select this function and Run to grant Drive/Docs permission */
 function testGoogleOcr() {
   const png = Utilities.newBlob(Utilities.base64Decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='), 'image/png');
   const r = googleOcr_({ image: Utilities.base64Encode(png.getBytes()) });
-  Logger.log('Google OCR พร้อมใช้งาน: ' + JSON.stringify(r));
+  Logger.log('Google OCR is ready: ' + JSON.stringify(r));
 }
 
 /* ======================= HELPERS ======================= */
