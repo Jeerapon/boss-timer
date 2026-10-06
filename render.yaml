@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: boss-timer
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: ./
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
