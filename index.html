@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Boss Timer v2 – บันทึกการลงบอส</title>
+<title>Boss Timer – Clan Attendance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -154,6 +154,22 @@ tr.dim td{color:var(--muted)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chip{display:inline-flex;align-items:center;gap:6px;background:#13243f;border:1px solid var(--line);border-radius:4px;padding:3px 4px 3px 9px;font-size:13.5px}
 .chip .c{color:var(--gold);font-size:12.5px;font-variant-numeric:tabular-nums}
+.chip.late{border-style:dashed;border-color:#5a6f95}
+.chip .lt{font-size:11px;color:var(--ok);cursor:help}
+.editlink{background:none;border:0;color:var(--gold);cursor:pointer;font-size:13px;padding:0;text-decoration:underline dotted}
+.log{display:flex;flex-direction:column;gap:6px}
+.log-item{display:grid;grid-template-columns:118px 1fr;gap:4px 12px;padding:9px 12px;border:1px solid var(--line);border-radius:5px;background:#0c192e;font-size:13.5px}
+.log-item .when{color:var(--muted);font-variant-numeric:tabular-nums;font-size:12.5px}
+.log-item .who{color:var(--text);font-weight:600}
+.log-item .dev{color:var(--muted);font-size:11.5px;font-weight:400}
+.log-item .what{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.log-item .det{grid-column:2;color:var(--muted);font-size:13px;word-break:break-word}
+.actb{font-size:12px;padding:1px 8px;border-radius:10px;border:1px solid;white-space:nowrap}
+.actb.add{color:var(--ok);border-color:#2d6b57}
+.actb.del{color:var(--bad);border-color:#6b3040}
+.actb.edit{color:var(--gold);border-color:#6e5a26}
+.actb.new{color:var(--accent);border-color:#2f4f80}
+@media (max-width:640px){.log-item{grid-template-columns:1fr}.log-item .det{grid-column:1}}
 .chip button{background:none;border:0;color:var(--muted);cursor:pointer;padding:0 5px;font-size:13px;border-radius:3px}
 .chip button:hover{color:var(--bad);background:#2a1420}
 
@@ -165,6 +181,7 @@ tr.dim td{color:var(--muted)}
 
 /* modal */
 dialog{border:1px solid var(--line-2);border-radius:8px;background:var(--panel);color:var(--text);padding:0;width:min(460px,92vw);max-height:88vh}
+dialog:has(.log){width:min(720px,94vw)}
 dialog::backdrop{background:rgba(3,8,18,.7)}
 .dlg-box{padding:18px;display:flex;flex-direction:column;gap:12px;max-height:88vh}
 .dlg-box h3{margin:0;font-size:16px;font-weight:600}
@@ -232,86 +249,86 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
 <div class="app">
   <header class="brand">
     <h1>BOSS TIMER</h1>
-    <p id="welcome">บันทึกการลงบอสของแคลน</p>
+    <p id="welcome">Clan boss attendance tracker</p>
   </header>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" aria-selected="true" data-view="record">บันทึก</button>
-    <button role="tab" aria-selected="false" data-view="history">ประวัติ</button>
-    <button role="tab" aria-selected="false" data-view="recap">สรุปคะแนน</button>
-    <button role="tab" aria-selected="false" data-view="admin">แอดมิน</button>
-    <button role="tab" aria-selected="false" data-view="settings">ตั้งค่า</button>
+    <button role="tab" aria-selected="true" data-view="record">Scan</button>
+    <button role="tab" aria-selected="false" data-view="history">History</button>
+    <button role="tab" aria-selected="false" data-view="recap">Leaderboard</button>
+    <button role="tab" aria-selected="false" data-view="admin">Admin</button>
+    <button role="tab" aria-selected="false" data-view="settings">Settings</button>
   </nav>
 
   <!-- ================= RECORD ================= -->
   <section class="view active" id="view-record">
     <div class="grid">
       <div class="panel">
-        <h2><span class="grow">รายละเอียด</span>
+        <h2><span class="grow">Run details</span>
           <span class="seg" id="typeSeg">
-            <button data-type="boss" class="on">บอส</button>
-            <button data-type="event">กิจกรรมแคลน</button>
+            <button data-type="boss" class="on">Boss</button>
+            <button data-type="event">Clan Event</button>
           </span>
         </h2>
         <div class="row">
-          <label class="field"><span id="targetLabel">เลือกบอส</span>
+          <label class="field"><span id="targetLabel">Boss</span>
             <select id="target"></select>
           </label>
-          <label class="field"><span id="timeLabel">เวลาที่บอสตาย</span>
+          <label class="field"><span id="timeLabel">Kill time</span>
             <input type="datetime-local" id="killTime">
           </label>
-          <div class="field" style="flex:0 0 auto;min-width:0"><span>แต้ม</span>
+          <div class="field" style="flex:0 0 auto;min-width:0"><span>Points</span>
             <div class="stepper">
-              <button type="button" id="ptMinus" aria-label="ลดแต้ม">−</button>
-              <input type="text" id="points" value="1" inputmode="decimal" aria-label="แต้ม">
-              <button type="button" id="ptPlus" aria-label="เพิ่มแต้ม">+</button>
+              <button type="button" id="ptMinus" aria-label="Less points">−</button>
+              <input type="text" id="points" value="1" inputmode="decimal" aria-label="Points">
+              <button type="button" id="ptPlus" aria-label="More points">+</button>
             </div>
           </div>
         </div>
 
         <div class="scanbar">
-          <button class="btn primary" id="btnScan">📷 สแกนหน้าจอ</button>
-          <button class="btn" id="btnFile">เลือกไฟล์ภาพ</button>
+          <button class="btn primary" id="btnScan">📷 Scan Screen</button>
+          <button class="btn" id="btnFile">Upload Image</button>
           <input type="file" id="file" accept="image/*" multiple hidden>
-          <button class="btn ghost" id="btnStop" hidden>หยุดแชร์หน้าจอ</button>
-          <span class="live" id="live">เชื่อมหน้าจออยู่</span>
+          <button class="btn ghost" id="btnStop" hidden>Stop Sharing</button>
+          <span class="live" id="live">Screen linked</span>
         </div>
         <div class="preview" id="preview">
           <div class="empty" id="previewEmpty">
-            เปิดหน้าต่าง <b>Participant</b> ในเกม แล้วกด <b>สแกนหน้าจอ</b><br>
-            หรือแคปภาพแล้วกด <b>Ctrl + V</b> ที่หน้านี้
+            Open the <b>Participant</b> window in game, then hit <b>Scan Screen</b><br>
+            or take a screenshot and press <b>Ctrl + V</b> here
           </div>
           <canvas id="cv" hidden></canvas>
         </div>
         <div class="hint" id="cropHint" hidden>
-          ลากเมาส์บนภาพเพื่อเลือกเฉพาะตาราง Participant จะอ่านได้แม่นขึ้น (จำกรอบไว้ใช้รอบถัดไป)
-          · <a href="#" id="clearCrop">ล้างกรอบ</a> · <a href="#" id="reOcr">อ่านภาพนี้ใหม่</a>
+          Drag a box around the Participant list for better accuracy (the box is remembered)
+          · <a href="#" id="clearCrop">Clear box</a> · <a href="#" id="reOcr">Re-scan this image</a>
         </div>
         <div class="progress" id="prog"><i></i></div>
         <div class="ocr-status" id="ocrStatus"></div>
         <div class="unmatched" id="unmatched">
-          <h3>อ่านชื่อได้แต่ไม่อยู่ในรายชื่อสมาชิก (Active) — แก้ชื่อให้ถูกแล้วเลือกได้</h3>
+          <h3>Names read but not on the roster — fix the spelling, then pick / link / add</h3>
           <div id="umList"></div>
         </div>
       </div>
 
       <div class="panel">
-        <h2><span class="grow">สมาชิกที่เข้าร่วม</span>
-          <span class="seg" id="sortSeg" title="วิธีเรียงรายชื่อที่เลือก">
-            <button data-s="dmg" class="on">ดาเมจ ↓</button><button data-s="name">A–Z</button>
+        <h2><span class="grow">Participants</span>
+          <span class="seg" id="sortSeg" title="Sort selected players">
+            <button data-s="dmg" class="on">DMG ↓</button><button data-s="name">A–Z</button>
           </span>
-          <button class="btn small ghost" id="btnReload" title="โหลดข้อมูลจาก Google Sheet">↻ โหลดข้อมูล</button>
+          <button class="btn small ghost" id="btnReload" title="Reload data from Google Sheet">↻ Sync</button>
         </h2>
         <div class="member-tools">
-          <input type="search" id="search" placeholder="ค้นหาชื่อ / Note…">
-          <select id="noteFilter" aria-label="กรองตาม Note" hidden></select>
-          <button class="btn small" id="btnOnlySel">เฉพาะที่เลือก</button>
+          <input type="search" id="search" placeholder="Search name / Note…">
+          <select id="noteFilter" aria-label="Filter by Note" hidden></select>
+          <button class="btn small" id="btnOnlySel">Selected only</button>
         </div>
         <div class="mlist" id="mlist"></div>
         <div class="footer-bar">
-          <span class="count" id="count">เลือก 0 คน</span>
-          <button class="btn ghost" id="btnClear">ล้าง</button>
-          <button class="btn primary" id="btnSave">บันทึกลง Google Sheet</button>
+          <span class="count" id="count">0 selected</span>
+          <button class="btn ghost" id="btnClear">Clear</button>
+          <button class="btn primary" id="btnSave">Save to Sheet</button>
         </div>
       </div>
     </div>
@@ -320,79 +337,95 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
   <!-- ================= HISTORY ================= -->
   <section class="view" id="view-history">
     <div class="panel">
-      <h2><span class="grow">ประวัติการลงบอส / กิจกรรม</span>
-        <span class="seg" id="histSeg">
-          <button data-f="all" class="on">ทั้งหมด</button><button data-f="boss">บอส</button><button data-f="event">กิจกรรม</button>
+      <h2><span class="grow">Run History</span>
+        <span class="seg" id="histView">
+          <button data-v="rounds" class="on">Runs</button><button data-v="log">📜 Edit Logs</button>
         </span>
-        <button class="btn small" id="btnHistory">↻ รีเฟรช</button>
+        <span class="seg" id="histSeg">
+          <button data-f="all" class="on">All</button><button data-f="boss">Boss</button><button data-f="event">Event</button>
+        </span>
+        <button class="btn small" id="btnHistory">↻ Refresh</button>
       </h2>
-      <p class="note" style="margin-top:0">กด <b>+ เพิ่มชื่อ</b> เพื่อเติมสมาชิกที่ตกหล่นจากการสแกน · กด ✕ ที่ชื่อเพื่อเอาออก</p>
-      <div id="historyList"><div class="empty-box">กดรีเฟรชเพื่อดึงประวัติจาก Google Sheet</div></div>
+      <p class="note" style="margin-top:0" id="histNote">Hit <b>+ Add</b> to add players the scan missed · ✕ on a name to remove it · every add/remove is recorded in <b>📜 Edit Logs</b></p>
+      <div id="historyList"><div class="empty-box">Hit Refresh to load history from Google Sheet</div></div>
+      <div id="logPanel" hidden>
+        <div class="toolbar">
+          <input type="search" id="logSearch" placeholder="Search editor / player / boss…">
+          <select id="logCat" style="width:auto" aria-label="Category">
+            <option value="">All categories</option><option value="Run">Runs</option>
+            <option value="Member">Members</option><option value="Boss">Bosses</option><option value="Event">Events</option>
+          </select>
+          <select id="logAct" style="width:auto" aria-label="Action">
+            <option value="">All actions</option><option value="add">Added</option><option value="del">Removed / Deleted</option><option value="edit">Edited</option>
+          </select>
+        </div>
+        <div class="log" id="logList"></div>
+      </div>
     </div>
   </section>
 
   <!-- ================= RECAP ================= -->
   <section class="view" id="view-recap">
     <div class="panel">
-      <h2><span class="grow">สรุปคะแนนสมาชิก</span>
+      <h2><span class="grow">Leaderboard</span>
         <span class="seg" id="recapSeg">
-          <button data-f="all" class="on">รวมทั้งหมด</button><button data-f="boss">บอส</button><button data-f="event">กิจกรรม</button>
+          <button data-f="all" class="on">All</button><button data-f="boss">Boss</button><button data-f="event">Event</button>
         </span>
-        <button class="btn small" id="btnCopyRecap" title="คัดลอกสรุปเป็นข้อความ สำหรับวางใน Discord">📋 คัดลอก</button>
-        <button class="btn small" id="btnRecap">↻ รีเฟรช</button>
+        <button class="btn small" id="btnCopyRecap" title="Copy as text for Discord">📋 Copy</button>
+        <button class="btn small" id="btnRecap">↻ Refresh</button>
       </h2>
 
       <div class="period">
         <div class="chips-row" id="presetRow">
-          <button class="pchip" data-p="today">วันนี้</button>
-          <button class="pchip" data-p="yesterday">เมื่อวาน</button>
-          <button class="pchip" data-p="7d">7 วันล่าสุด</button>
-          <button class="pchip" data-p="30d">30 วันล่าสุด</button>
-          <button class="pchip" data-p="month">เดือนนี้</button>
-          <button class="pchip" data-p="lastmonth">เดือนที่แล้ว</button>
-          <button class="pchip" data-p="all">ทั้งหมด</button>
-          <button class="pchip" data-p="custom">กำหนดเอง</button>
+          <button class="pchip" data-p="today">Today</button>
+          <button class="pchip" data-p="yesterday">Yesterday</button>
+          <button class="pchip" data-p="7d">Last 7 days</button>
+          <button class="pchip" data-p="30d">Last 30 days</button>
+          <button class="pchip" data-p="month">This month</button>
+          <button class="pchip" data-p="lastmonth">Last month</button>
+          <button class="pchip" data-p="all">All time</button>
+          <button class="pchip" data-p="custom">Custom</button>
         </div>
         <div class="daynav">
-          <button class="ibtn" id="rPrev" aria-label="ช่วงก่อนหน้า">‹</button>
+          <button class="ibtn" id="rPrev" aria-label="Previous">‹</button>
           <span class="lbl" id="rLabel">-</span>
-          <button class="ibtn" id="rNext" aria-label="ช่วงถัดไป">›</button>
+          <button class="ibtn" id="rNext" aria-label="Next">›</button>
         </div>
       </div>
       <div class="custom-range" id="customRange" hidden style="margin:-4px 0 14px">
-        ตั้งแต่ <input type="date" id="rFrom"> ถึง <input type="date" id="rTo">
+        From <input type="date" id="rFrom"> to <input type="date" id="rTo">
       </div>
 
       <div class="stats">
-        <div class="stat a"><div class="k">รอบที่บันทึก</div><div class="v" id="stRounds">-</div><div class="s" id="stRoundsSub">&nbsp;</div></div>
-        <div class="stat b"><div class="k">สมาชิกที่เข้าร่วม</div><div class="v" id="stPeople">-</div><div class="s" id="stPeopleSub">&nbsp;</div></div>
-        <div class="stat c"><div class="k">แต้มที่แจกรวม</div><div class="v" id="stPoints">-</div><div class="s" id="stPointsSub">&nbsp;</div></div>
-        <div class="stat d"><div class="k">ดาเมจรวม</div><div class="v" id="stDmg">-</div><div class="s" id="stDmgSub">&nbsp;</div></div>
+        <div class="stat a"><div class="k">Runs</div><div class="v" id="stRounds">-</div><div class="s" id="stRoundsSub">&nbsp;</div></div>
+        <div class="stat b"><div class="k">Players</div><div class="v" id="stPeople">-</div><div class="s" id="stPeopleSub">&nbsp;</div></div>
+        <div class="stat c"><div class="k">Points given</div><div class="v" id="stPoints">-</div><div class="s" id="stPointsSub">&nbsp;</div></div>
+        <div class="stat d"><div class="k">Total DMG</div><div class="v" id="stDmg">-</div><div class="s" id="stDmgSub">&nbsp;</div></div>
       </div>
 
       <div class="chart-box" id="chartBox" hidden>
-        <div class="chart-head"><span id="chartTitle">จำนวนคนเข้าร่วมรายวัน · คลิกแท่งเพื่อดูวันนั้น</span>
-          <span class="legend"><span><i style="background:var(--accent)"></i>บอส</span><span><i style="background:var(--violet)"></i>กิจกรรม</span></span></div>
+        <div class="chart-head"><span id="chartTitle">Daily attendance · click a bar to view that day</span>
+          <span class="legend"><span><i style="background:var(--accent)"></i>Boss</span><span><i style="background:var(--violet)"></i>Event</span></span></div>
         <div class="chart" id="chart"></div>
         <div class="xaxis" id="xaxis"></div>
       </div>
 
       <div class="chart-box" id="roundsBox" hidden>
-        <div class="chart-head"><span id="roundsTitle">รอบในวันนี้</span></div>
+        <div class="chart-head"><span id="roundsTitle">Runs today</span></div>
         <div class="rounds" id="rounds"></div>
       </div>
 
       <div class="toolbar">
-        <input type="search" id="recapSearch" placeholder="ค้นหาชื่อ / Note…">
-        <select id="recapNote" aria-label="กรองตาม Note" style="width:auto" hidden></select>
+        <input type="search" id="recapSearch" placeholder="Search name / Note…">
+        <select id="recapNote" aria-label="Filter by Note" style="width:auto" hidden></select>
         <label class="note" style="display:flex;gap:6px;align-items:center;cursor:pointer">
-          <input type="checkbox" id="recapHideInactive"> ซ่อนคนที่เลิกเล่น
+          <input type="checkbox" id="recapHideInactive"> Hide inactive
         </label>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>ชื่อ</th><th>Note</th><th>สถานะ</th><th class="num">แต้ม</th><th class="num">บอส</th><th class="num">กิจกรรม</th><th class="num">วันที่มา</th><th class="num">Contribution</th></tr></thead>
-          <tbody id="recapBody"><tr><td colspan="9" class="note">กดรีเฟรชเพื่อดึงข้อมูล</td></tr></tbody>
+          <thead><tr><th>#</th><th>Player</th><th>Note</th><th>Status</th><th class="num">Points</th><th class="num">Boss</th><th class="num">Event</th><th class="num">Days</th><th class="num">DMG</th></tr></thead>
+          <tbody id="recapBody"><tr><td colspan="9" class="note">Hit Refresh to load data</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -402,27 +435,27 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
   <section class="view" id="view-admin">
     <div style="display:flex;justify-content:center;margin-bottom:16px">
       <span class="seg" id="adminSeg">
-        <button data-p="members" class="on">จัดการสมาชิก</button>
-        <button data-p="bosses">จัดการบอส</button>
-        <button data-p="events">จัดการกิจกรรม</button>
+        <button data-p="members" class="on">Roster</button>
+        <button data-p="bosses">Bosses</button>
+        <button data-p="events">Events</button>
       </span>
     </div>
 
     <div id="admin-members">
       <div class="panel">
-        <h2><span class="grow">ข้อมูลสมาชิก</span>
-          <button class="btn primary small" id="btnAddMember">+ เพิ่มสมาชิก</button>
+        <h2><span class="grow">Clan Roster</span>
+          <button class="btn primary small" id="btnAddMember">+ Add Member</button>
         </h2>
         <div class="toolbar">
-          <input type="search" id="memSearch" placeholder="ค้นหาชื่อ / Note…">
-          <select id="memNote" aria-label="กรองตาม Note" style="width:auto" hidden></select>
+          <input type="search" id="memSearch" placeholder="Search name / Note…">
+          <select id="memNote" aria-label="Filter by Note" style="width:auto" hidden></select>
           <span class="seg" id="memSeg">
-            <button data-f="all" class="on">ทั้งหมด</button><button data-f="Active">Active</button><button data-f="Inactive">Inactive</button>
+            <button data-f="all" class="on">All</button><button data-f="Active">Active</button><button data-f="Inactive">Inactive</button>
           </span>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>ชื่อ (IGN)</th><th>สถานะ</th><th>เริ่มเป็นสมาชิก</th><th>Note</th><th></th></tr></thead>
+            <thead><tr><th>IGN</th><th>Status</th><th>Joined</th><th>Note</th><th></th></tr></thead>
             <tbody id="memBody"></tbody>
           </table>
         </div>
@@ -430,22 +463,22 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
         <div class="meta" id="memMeta"></div>
       </div>
       <div class="panel">
-        <h2>เพิ่มสมาชิกทีละหลายคน</h2>
-        <label class="field"><span>ใส่ชื่อ 1 บรรทัดต่อ 1 คน (สถานะ Active, วันที่เริ่ม = วันนี้)</span>
+        <h2>Bulk Add Members</h2>
+        <label class="field"><span>One name per line (status Active, joined = today)</span>
           <textarea id="bulk" placeholder="Gorr&#10;Saladin&#10;Vysache&#10;TWINS"></textarea>
         </label>
-        <button class="btn" id="btnBulk" style="margin-top:10px">เพิ่มเข้า Google Sheet</button>
+        <button class="btn" id="btnBulk" style="margin-top:10px">Add to Sheet</button>
       </div>
     </div>
 
     <div id="admin-bosses" hidden>
       <div class="panel">
-        <h2><span class="grow">รายชื่อบอส <span class="note" id="bossCount"></span></span>
-          <button class="btn primary small" data-add="bosses">+ เพิ่มบอส</button>
+        <h2><span class="grow">Boss List <span class="note" id="bossCount"></span></span>
+          <button class="btn primary small" data-add="bosses">+ Add Boss</button>
         </h2>
-        <div class="toolbar"><input type="search" id="bossSearch" placeholder="ค้นหาชื่อบอส…"></div>
+        <div class="toolbar"><input type="search" id="bossSearch" placeholder="Search boss…"></div>
         <div class="table-wrap"><table>
-          <thead><tr><th>ชื่อบอส</th><th class="num">แต้ม</th><th></th></tr></thead>
+          <thead><tr><th>Boss</th><th class="num">Points</th><th></th></tr></thead>
           <tbody id="bossBody"></tbody>
         </table></div>
       </div>
@@ -453,12 +486,12 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
 
     <div id="admin-events" hidden>
       <div class="panel">
-        <h2><span class="grow">รายชื่อกิจกรรมแคลน <span class="note" id="eventCount"></span></span>
-          <button class="btn primary small" data-add="events">+ เพิ่มกิจกรรม</button>
+        <h2><span class="grow">Clan Events <span class="note" id="eventCount"></span></span>
+          <button class="btn primary small" data-add="events">+ Add Event</button>
         </h2>
-        <div class="toolbar"><input type="search" id="eventSearch" placeholder="ค้นหาชื่อกิจกรรม…"></div>
+        <div class="toolbar"><input type="search" id="eventSearch" placeholder="Search event…"></div>
         <div class="table-wrap"><table>
-          <thead><tr><th>ชื่อกิจกรรม</th><th class="num">แต้ม</th><th></th></tr></thead>
+          <thead><tr><th>Event</th><th class="num">Points</th><th></th></tr></thead>
           <tbody id="eventBody"></tbody>
         </table></div>
       </div>
@@ -469,42 +502,42 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
   <section class="view" id="view-settings">
     <div class="settings">
       <div class="panel">
-        <h2>เชื่อมต่อ Google Sheet</h2>
-        <label class="field"><span>Web app URL (ลงท้ายด้วย /exec)</span>
+        <h2>Google Sheet Connection</h2>
+        <label class="field"><span>Web app URL (ends with /exec)</span>
           <input type="url" id="sUrl" placeholder="https://script.google.com/macros/s/…/exec">
         </label>
-        <label class="field"><span>รหัสลับ (ถ้าตั้งไว้ใน Code.gs)</span>
-          <input type="password" id="sKey" placeholder="เว้นว่างได้">
+        <label class="field"><span>Secret key (if set in Code.gs)</span>
+          <input type="password" id="sKey" placeholder="Optional">
         </label>
-        <label class="field"><span>ชื่อผู้บันทึก</span>
-          <input type="text" id="sRecorder" placeholder="เช่น Admin">
+        <label class="field"><span>Your name (shown in logs)</span>
+          <input type="text" id="sRecorder" placeholder="e.g. your IGN">
         </label>
         <div class="row">
-          <button class="btn primary" id="btnSaveSettings">บันทึกการตั้งค่า</button>
-          <button class="btn" id="btnTest">ทดสอบการเชื่อมต่อ</button>
+          <button class="btn primary" id="btnSaveSettings">Save Settings</button>
+          <button class="btn" id="btnTest">Test Connection</button>
         </div>
       </div>
       <div class="panel">
-        <h2>การอ่านภาพ (OCR)</h2>
-        <label class="field"><span>ระบบอ่านภาพ</span>
+        <h2>Scanner (OCR)</h2>
+        <label class="field"><span>Scan engine</span>
           <select id="sEngine">
-            <option value="hybrid">โหมดผสม · เห็นผลทันที + Google ตรวจซ้ำ (แนะนำ)</option>
-            <option value="google">โหมดแม่นยำ · รอ Google OCR อย่างเดียว</option>
-            <option value="tesseract">โหมดเร็ว · Tesseract (อ่านในเครื่อง)</option>
+            <option value="hybrid">Hybrid · instant result + Google double-check (recommended)</option>
+            <option value="google">Accurate · Google OCR only (slower)</option>
+            <option value="tesseract">Fast · Tesseract only (runs locally)</option>
           </select>
         </label>
-        <p class="note" style="margin:-4px 0 12px">โหมดผสม/แม่นยำ ใช้ Google OCR ผ่าน Apps Script (ต้องเปิด Drive API) ถ้า Google ใช้ไม่ได้ โปรแกรมจะใช้ผลจากโหมดเร็วให้อัตโนมัติ</p>
-        <label class="field"><span>ภาษาของชื่อตัวละคร</span>
+        <p class="note" style="margin:-4px 0 12px">Hybrid/Accurate use Google OCR through Apps Script (needs Drive API). If Google fails, the app falls back to Fast mode automatically.</p>
+        <label class="field"><span>Character name language</span>
           <select id="sLang">
-            <option value="eng">อังกฤษอย่างเดียว (เร็วที่สุด)</option>
-            <option value="eng+tha">อังกฤษ + ไทย</option>
-            <option value="eng+kor">อังกฤษ + เกาหลี</option>
+            <option value="eng">English only (fastest)</option>
+            <option value="eng+tha">English + Thai</option>
+            <option value="eng+kor">English + Korean</option>
           </select>
         </label>
-        <label class="field"><span>ความเข้มงวดในการจับคู่ชื่อ: <b id="sThVal">75%</b></span>
+        <label class="field"><span>Name match strictness: <b id="sThVal">75%</b></span>
           <input type="range" id="sTh" min="55" max="100" step="5" value="75">
         </label>
-        <p class="note">ค่าต่ำ = จับคู่ชื่อที่ OCR อ่านเพี้ยนได้มากขึ้น แต่อาจติ๊กผิดคน ค่าแนะนำ 70–80%</p>
+        <p class="note">Lower = catches more misread names, but may tick the wrong player. Recommended 70–80%.</p>
       </div>
     </div>
   </section>
@@ -516,8 +549,8 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
     <div class="dlg-body" id="dlgBody"></div>
     <div class="dlg-err" id="dlgErr"></div>
     <div class="dlg-foot">
-      <button class="btn ghost" id="dlgCancel">ยกเลิก</button>
-      <button class="btn primary" id="dlgOk">บันทึก</button>
+      <button class="btn ghost" id="dlgCancel">Cancel</button>
+      <button class="btn primary" id="dlgOk">Save</button>
     </div>
   </div>
 </dialog>
@@ -533,19 +566,21 @@ const LS = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
 };
-/* ===== ตั้งค่าเริ่มต้นสำหรับเว็บที่ขึ้น Render =====
-   ใส่ Web app URL ของ Apps Script ไว้ตรงนี้ คนที่เปิดเว็บจะได้ไม่ต้องวางเอง
-   (ห้ามใส่รหัสลับในไฟล์นี้ ให้แต่ละคนกรอกในหน้า "ตั้งค่า" เอง) */
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwtlaQLhdVlaA4d2nYq-L2QUEm6EjEiw5pI0Kth0-gUnTGE2fgdJjnGvRvvYmksJhCXAA/exec';
+/* ===== Default config for the hosted (Render) site =====
+   Put your Apps Script Web app URL here so players don't have to paste it.
+   (Never put the secret key in this file — each person enters it in Settings.) */
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbziac9KzoIq9H_I8AjcADu0R_MiIQTxAzozeMo41Le2AeAPoSPA86nmrU9MfPub1qYD-w/exec';
 
 const settings = Object.assign({ apiUrl:'', key:'', recorder:'', lang:'eng', threshold:75, crop:null, engine:'hybrid' }, LS.get('bt.settings', {}));
 if (!settings.apiUrl && DEFAULT_API_URL) settings.apiUrl = DEFAULT_API_URL;
 const saveSettingsLS = () => LS.set('bt.settings', settings);
-// ย้ายผู้ที่เคยตั้งโหมด Google ไว้ ไปใช้โหมดผสม (เร็วกว่า แม่นเท่าเดิม) ครั้งเดียว
+// Random device ID (created once), shown in the Edit Logs
+if (!settings.deviceId){ settings.deviceId = Math.random().toString(36).slice(2, 8).toUpperCase(); LS.set('bt.settings', settings); }
+// One-time move from Google-only to Hybrid (faster, same accuracy)
 if (!settings.engineV2){ if (settings.engine === 'google') settings.engine = 'hybrid'; settings.engineV2 = 1; saveSettingsLS(); }
 
 const data = Object.assign({ members:[], bosses:[], events:[] }, LS.get('bt.data', {}));
-// แปลงแคชจากเวอร์ชัน 1 (รายชื่อเป็น string)
+// Convert v1 cache (plain name list)
 const oldMembers = LS.get('bt.members', null);
 if (!data.members.length && Array.isArray(oldMembers))
   data.members = oldMembers.map(n => ({ name:n, status:'Active', joined:'', note:'' }));
@@ -580,21 +615,21 @@ const today = () => localInput().slice(0,10);
 function thDate(s){
   if (!s) return '-';
   const d = new Date(s.length === 10 ? s + 'T00:00:00' : s);
-  return isNaN(d) ? esc(s) : d.toLocaleDateString('th-TH', { day:'2-digit', month:'short', year:'numeric' });
+  return isNaN(d) ? esc(s) : d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
 }
 function thDateTime(s){
   const d = new Date(s);
-  return isNaN(d) ? esc(s) : d.toLocaleString('th-TH', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+  return isNaN(d) ? esc(s) : d.toLocaleString('en-GB', { day:'2-digit', month:'short', year:'2-digit', hour:'2-digit', minute:'2-digit' });
 }
 const noteOf = n => (data.members.find(m => lc(m.name) === lc(n))?.note || '').trim();
 const noteHue = t => { let h = 0; for (const c of t.toUpperCase()) h = (h*31 + c.charCodeAt(0)) >>> 0; return 'h' + (h % 6); };
 const noteTag = t => t ? `<span class="ntag ${noteHue(t)}">${esc(t)}</span>` : '';
-function fillNoteSelect(id, allLabel='ทุก Note'){
+function fillNoteSelect(id, allLabel='All Notes'){
   const sel = $(id), cur = sel.value;
   const notes = [...new Set(data.members.map(m => (m.note||'').trim()).filter(Boolean))].sort(byName);
   sel.hidden = !notes.length;
   sel.innerHTML = `<option value="">${allLabel}</option>` + notes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') +
-    (notes.length ? '<option value="__none">(ไม่มี Note)</option>' : '');
+    (notes.length ? '<option value="__none">(No Note)</option>' : '');
   if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
 }
 const noteMatch = (note, f) => !f || (f === '__none' ? !note : lc(note) === lc(f));
@@ -622,16 +657,16 @@ document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('cl
 
 /* ================= API ================= */
 function checkUrl(u){
-  if (!u) throw new Error('ยังไม่ได้ใส่ Web app URL ในหน้า ตั้งค่า');
+  if (!u) throw new Error('No Web app URL yet — add it in Settings');
   if (u.includes('googleusercontent.com'))
-    throw new Error('URL ผิด: ต้องใช้ URL ที่ขึ้นต้นด้วย script.google.com และลงท้ายด้วย /exec');
+    throw new Error('Wrong URL: it must start with script.google.com and end with /exec');
   if (!/^https:\/\/script\.google\.com\/.+\/exec\/?$/.test(u))
-    throw new Error('URL ต้องขึ้นต้นด้วย https://script.google.com/ และลงท้ายด้วย /exec');
+    throw new Error('URL must start with https://script.google.com/ and end with /exec');
 }
 async function readJson(r){
   const t = await r.text();
   try { return JSON.parse(t); }
-  catch { throw new Error('Google ส่งหน้าเว็บกลับมาแทนข้อมูล ตรวจว่า Deploy เป็น "เว็บแอป" และ "ผู้ที่มีสิทธิ์เข้าถึง" เป็น "ทุกคน"'); }
+  catch { throw new Error('Google returned a web page instead of data. Check the deployment is a "Web app" with access set to "Anyone"'); }
 }
 async function apiGet(action, params={}){
   checkUrl(settings.apiUrl);
@@ -640,28 +675,30 @@ async function apiGet(action, params={}){
   if (settings.key) u.searchParams.set('key', settings.key);
   Object.entries(params).forEach(([k,v]) => u.searchParams.set(k, v));
   const j = await readJson(await fetch(u, { redirect:'follow' }));
-  if (!j.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
+  if (!j.ok) throw new Error(j.error || 'Something went wrong');
   return j;
 }
 async function apiPost(body){
   checkUrl(settings.apiUrl);
+  if (body.action !== 'ocr' && !settings.recorder)
+    throw new Error('Enter "Your name" in Settings first — it is logged with every add/remove');
   const r = await fetch(settings.apiUrl, {
     method:'POST', redirect:'follow',
     headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ key: settings.key, recordedBy: settings.recorder }, body))
+    body: JSON.stringify(Object.assign({ key: settings.key, recordedBy: settings.recorder, device: settings.deviceId }, body))
   });
   const j = await readJson(r);
-  if (!j.ok){ const err = new Error(j.error || 'เกิดข้อผิดพลาด'); err.data = j; throw err; }
+  if (!j.ok){ const err = new Error(j.error || 'Something went wrong'); err.data = j; throw err; }
   return j;
 }
 
 async function loadAll(silent){
   try{
     const j = await apiGet('bootstrap');
-    if (!Array.isArray(j.bosses)) throw new Error('Code.gs ยังเป็นเวอร์ชันเก่า: วางโค้ดใหม่ รัน setup แล้ว Deploy เวอร์ชันใหม่');
+    if (!Array.isArray(j.bosses)) throw new Error('Code.gs is outdated: paste the new code, run setup, then Deploy a new version');
     data.members = j.members; data.bosses = j.bosses; data.events = j.events;
     saveData(); renderAll();
-    if (!silent) toast(`โหลดแล้ว · สมาชิก ${j.members.length} · บอส ${j.bosses.length} · กิจกรรม ${j.events.length}`, 'ok');
+    if (!silent) toast(`Synced · ${j.members.length} members · ${j.bosses.length} bosses · ${j.events.length} events`, 'ok');
     return true;
   }catch(e){ if (!silent) toast(e.message, 'bad'); return false; }
 }
@@ -673,10 +710,11 @@ function renderAll(){
 /* ================= Modal ================= */
 const dlg = $('dlg');
 let dlgHandler = null;
-function openModal({ title, body, okText='บันทึก', danger=false, onOk }){
+function openModal({ title, body, okText='Save', danger=false, onOk }){
   $('dlgTitle').textContent = title;
   $('dlgBody').innerHTML = body;
   $('dlgErr').textContent = '';
+  $('dlgCancel').textContent = 'Cancel';
   const ok = $('dlgOk');
   ok.hidden = okText === null;
   ok.textContent = okText || '';
@@ -691,7 +729,7 @@ $('dlgOk').onclick = async () => {
   if (!dlgHandler) return dlg.close();
   const ok = $('dlgOk');
   try {
-    await busy(ok, async () => { ok.textContent = 'กำลังบันทึก…'; await dlgHandler(); });
+    await busy(ok, async () => { ok.textContent = 'Saving…'; await dlgHandler(); });
     dlg.close();
   } catch (e) { $('dlgErr').textContent = e.message || String(e); }
 };
@@ -704,16 +742,16 @@ const confirmBox = (title, msg, okText, action) =>
 /* ================= RECORD: target (boss/event) ================= */
 segBind('typeSeg', 'type', t => {
   state.type = t;
-  $('targetLabel').textContent = t === 'event' ? 'เลือกกิจกรรม' : 'เลือกบอส';
-  $('timeLabel').textContent = t === 'event' ? 'เวลากิจกรรม' : 'เวลาที่บอสตาย';
+  $('targetLabel').textContent = t === 'event' ? 'Event' : 'Boss';
+  $('timeLabel').textContent = t === 'event' ? 'Event time' : 'Kill time';
   renderTargets();
 });
 function renderTargets(){
   const list = state.type === 'event' ? data.events : data.bosses;
   const cur = $('target').value;
-  const label = state.type === 'event' ? 'กิจกรรม' : 'บอส';
-  $('target').innerHTML = `<option value="">— เลือก${label} (${list.length}) —</option>` +
-    list.map(x => `<option value="${esc(x.name)}">${esc(x.name)} · ${x.points} แต้ม</option>`).join('');
+  const label = state.type === 'event' ? 'event' : 'boss';
+  $('target').innerHTML = `<option value="">— Select ${label} (${list.length}) —</option>` +
+    list.map(x => `<option value="${esc(x.name)}">${esc(x.name)} · ${x.points} pts</option>`).join('');
   if (list.some(x => x.name === cur)) $('target').value = cur;
 }
 $('target').onchange = () => {
@@ -733,8 +771,8 @@ function renderMembers(){
   const q = lc($('search').value.trim()), nf = $('noteFilter').value;
   const act = activeNames();
   const actSet = new Set(act.map(lc));
-  // ชื่อที่เลือกอยู่ขึ้นบนสุดเสมอ: สแกนเจอก่อน > ติ๊กเอง > ที่เหลือเรียง A-Z
-  // ที่เลือกอยู่ขึ้นบนสุดเสมอ: โหมด "ดาเมจ" เรียงตาม Contribution มาก -> น้อย / โหมด "A–Z" เรียงตามชื่อ
+  // Selected players always on top
+  // DMG mode: highest Contribution first / A–Z mode: by name
   const byDmg = (settings.sortMode || 'dmg') === 'dmg';
   const rank = n => state.selected.has(n) ? 0 : 1;
   const contrib = n => byDmg ? (state.selected.get(n)?.contribution || 0) : 0;
@@ -744,29 +782,29 @@ function renderMembers(){
     return (!q || lc(n).includes(q) || lc(note).includes(q)) && noteMatch(note, nf) && (!state.onlySel || state.selected.has(n)); });
   const box = $('mlist');
   if (!names.length){
-    box.innerHTML = `<div class="empty-box">ยังไม่มีรายชื่อสมาชิก<br>ตั้งค่าการเชื่อมต่อ แล้วเพิ่มสมาชิกในหน้า “แอดมิน”</div>`;
+    box.innerHTML = `<div class="empty-box">No members yet<br>Connect in Settings, then add members in Admin</div>`;
   } else if (!rows.length){
-    box.innerHTML = `<div class="empty-box">ไม่พบชื่อที่ค้นหา</div>`;
+    box.innerHTML = `<div class="empty-box">No matching names</div>`;
   } else {
     let divided = false, pos = 0;
     const selCount = rows.filter(r => state.selected.has(r)).length;
-    const head = selCount ? `<div class="mdiv sel">✔ ที่เลือก / สแกนเจอ (${selCount})</div>` : '';
+    const head = selCount ? `<div class="mdiv sel">✔ Selected / scanned (${selCount})</div>` : '';
     box.innerHTML = head + rows.map(n => {
       const s = state.selected.get(n);
       const div = (!s && !divided && selCount)
-        ? (divided = true, `<div class="mdiv">สมาชิกอื่น ๆ (${rows.length - selCount})</div>`) : '';
-      const tag = s ? (!actSet.has(lc(n)) ? '<span class="tag guest">นอกรายชื่อ</span>'
-                     : s.source === 'scan' ? '<span class="tag scan">สแกน</span>' : '') : '';
+        ? (divided = true, `<div class="mdiv">Other members (${rows.length - selCount})</div>`) : '';
+      const tag = s ? (!actSet.has(lc(n)) ? '<span class="tag guest">Guest</span>'
+                     : s.source === 'scan' ? '<span class="tag scan">Scanned</span>' : '') : '';
       return div + `<label class="m${s?' on':''}${s && state.fresh.has(n)?' fresh':''}" data-n="${esc(n)}"><input type="checkbox"${s?' checked':''}>
         ${s ? `<span class="rk${byDmg && ++pos <= 3 && s.contribution ? ' top' : ''}">${byDmg ? pos : ''}</span>` : ''}
         <span class="n">${esc(n)}</span>${noteTag(noteOf(n))}${tag}<span class="c">${s ? (fmt(s.contribution) || '-') : ''}</span></label>`;
     }).join('');
   }
   const groups = {};
-  [...state.selected.keys()].forEach(n => { const t = noteOf(n) || 'ไม่มี Note'; groups[t] = (groups[t]||0) + 1; });
-  const gtxt = Object.keys(groups).length > 1 || (Object.keys(groups)[0] && Object.keys(groups)[0] !== 'ไม่มี Note')
+  [...state.selected.keys()].forEach(n => { const t = noteOf(n) || 'No Note'; groups[t] = (groups[t]||0) + 1; });
+  const gtxt = Object.keys(groups).length > 1 || (Object.keys(groups)[0] && Object.keys(groups)[0] !== 'No Note')
     ? ' · ' + Object.entries(groups).map(([k,v]) => `${k} ${v}`).join(' · ') : '';
-  $('count').textContent = `เลือก ${state.selected.size} คน${gtxt}`;
+  $('count').textContent = `${state.selected.size} selected${gtxt}`;
   $('btnSave').disabled = !state.selected.size;
 }
 $('mlist').addEventListener('change', e => {
@@ -793,7 +831,7 @@ $('btnStop').onclick = stopStream;
 async function scanScreen(){
   try{
     if (!state.stream){
-      if (!navigator.mediaDevices?.getDisplayMedia) throw new Error('เบราว์เซอร์นี้แคปหน้าจอไม่ได้ ใช้ Ctrl+V หรือเลือกไฟล์แทน');
+      if (!navigator.mediaDevices?.getDisplayMedia) throw new Error('This browser can\'t capture the screen — use Ctrl+V or Upload Image');
       state.stream = await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:5 }, audio:false });
       const v = document.createElement('video');
       v.muted = true; v.playsInline = true; v.srcObject = state.stream;
@@ -894,9 +932,9 @@ function preprocess(src, scale){
 async function getWorker(){
   if (state.worker && state.workerLang === settings.lang) return state.worker;
   if (state.worker) await state.worker.terminate();
-  setStatus('กำลังโหลดตัวอ่านภาพ (ครั้งแรกอาจใช้เวลาสักครู่)…', 0.05);
+  setStatus('Loading scanner (first time takes a moment)…', 0.05);
   state.worker = await Tesseract.createWorker(settings.lang, 1, {
-    logger: m => { if (m.status === 'recognizing text') setStatus('กำลังอ่านภาพ…', m.progress); }
+    logger: m => { if (m.status === 'recognizing text') setStatus('Reading image…', m.progress); }
   });
   await state.worker.setParameters({ tessedit_pageseg_mode:'6', preserve_interword_spaces:'1' });
   state.workerLang = settings.lang;
@@ -909,33 +947,33 @@ function setStatus(text, progress){
 }
 let ocrBusy = Promise.resolve();
 function runOCR(){
-  ocrBusy = ocrBusy.then(doOCR).catch(e => { setStatus(''); toast('อ่านภาพไม่สำเร็จ: ' + (e.message||e), 'bad'); });
+  ocrBusy = ocrBusy.then(doOCR).catch(e => { setStatus(''); toast('Scan failed: ' + (e.message||e), 'bad'); });
   return ocrBusy;
 }
 async function googleOCR(silent){
-  // ส่งภาพ (ครอบ + กลับสี) ให้ Apps Script อ่านด้วย Google OCR
-  // ส่งเป็น JPEG ขนาดพอดี (ไม่ขยายเกินจำเป็น) ไฟล์เล็กลงหลายเท่า = ส่งเร็วขึ้น
+  // Send the (cropped, inverted) image to Apps Script for Google OCR
+  // Small JPEG (no unnecessary upscaling) = much faster upload
   const r0 = settings.crop || { w:1 };
   const sw = r0.w * state.image.width;
   const k = sw < 700 ? 2 : sw < 1100 ? 1.4 : Math.min(1, 1600 / sw);
   const jpg = preprocess(state.image, k).toDataURL('image/jpeg', 0.85);
   const lang = { 'eng':'en', 'eng+tha':'th', 'eng+kor':'ko' }[settings.lang] || 'en';
-  if (!silent) setStatus('กำลังส่งภาพให้ Google OCR อ่าน…', 0.3);
+  if (!silent) setStatus('Sending image to Google OCR…', 0.3);
   const j = await apiPost({ action:'ocr', image:jpg.split(',')[1], mime:'image/jpeg', lang });
   return parseSmart(j.text || '');
 }
 async function tesseractOCR(passes){
-  if (typeof Tesseract === 'undefined') throw new Error('โหลด Tesseract.js ไม่ได้ ตรวจสอบอินเทอร์เน็ต');
+  if (typeof Tesseract === 'undefined') throw new Error('Could not load Tesseract.js — check your internet');
   const w = await getWorker();
-  setStatus('กำลังอ่านภาพ…', 0.1);
+  setStatus('Reading image…', 0.1);
   const r0 = settings.crop || { w:1 };
   const sw = r0.w * state.image.width;
   const k1 = sw > 2400 ? 1 : sw > 1300 ? 1.6 : 2.4;
   const { data:res1 } = await w.recognize(preprocess(state.image, k1));
   if (passes < 2) return parseText(res1.text);
-  // อ่านรอบ 2 ด้วยขนาดภาพต่างกัน แล้วรวมผล (ลดโอกาสอ่านชื่อตกหล่น)
+  // 2nd pass at a different scale, merged (fewer missed names)
   const k2 = k1 === 2.4 ? 1.6 : k1 === 1.6 ? 2.4 : 1.6;
-  setStatus('กำลังอ่านภาพ (รอบ 2)…', 0.6);
+  setStatus('Reading image (pass 2)…', 0.6);
   const { data:res2 } = await w.recognize(preprocess(state.image, k2));
   return mergeFound(parseText(res1.text), parseText(res2.text));
 }
@@ -947,28 +985,28 @@ async function doOCR(){
   state.userUnchecked = new Set();
   const canGoogle = engine !== 'tesseract' && !!settings.apiUrl;
 
-  // โหมดแม่นยำ: รอ Google อย่างเดียว
+  // Accurate mode: wait for Google only
   if (engine === 'google' && canGoogle){
     try { return finishOCR(await googleOCR(), 'Google OCR'); }
-    catch (e) { toast('Google OCR ใช้ไม่ได้: ' + e.message + ' · สลับไปโหมดเร็วรอบนี้', 'bad'); }
+    catch (e) { toast('Google OCR failed: ' + e.message + ' · using Fast mode this time', 'bad'); }
   }
 
-  // โหมดผสม: ส่งให้ Google ทันที (ทำงานคู่ขนาน) + Tesseract อ่านเร็ว ๆ ให้เห็นผลก่อน
+  // Hybrid: send to Google right away (in parallel) + quick Tesseract result first
   if (engine === 'hybrid' && canGoogle){
     const t0 = performance.now();
     const gp = googleOCR(true).then(f => ({ f }), e => ({ e }));
     let quickOk = false;
     try {
-      finishOCR(await tesseractOCR(1), 'ด่วน');
+      finishOCR(await tesseractOCR(1), 'Quick');
       quickOk = true;
-      setStatus($('ocrStatus').textContent + ' · กำลังตรวจซ้ำด้วย Google…', 0.95);
-    } catch (e) { setStatus('กำลังรอ Google OCR…', 0.5); }
-    // ไม่ต้องรอ Google ในคิว: ให้สแกนภาพถัดไปได้ทันที
+      setStatus($('ocrStatus').textContent + ' · Google double-checking…', 0.95);
+    } catch (e) { setStatus('Waiting for Google OCR…', 0.5); }
+    // Don't block the queue on Google: next scan can start right away
     gp.then(g => {
-      if (token !== state.ocrToken) return;           // มีการสแกนใหม่แล้ว ทิ้งผลเก่า
+      if (token !== state.ocrToken) return;           // a newer scan started, drop this result
       if (g.e){
-        toast('Google OCR ใช้ไม่ได้: ' + g.e.message + (quickOk ? ' · ใช้ผลจากโหมดเร็ว' : ''), 'bad');
-        setStatus($('ocrStatus').textContent.replace(' · กำลังตรวจซ้ำด้วย Google…', ''), null);
+        toast('Google OCR failed: ' + g.e.message + (quickOk ? ' · kept the quick result' : ''), 'bad');
+        setStatus($('ocrStatus').textContent.replace(' · Google double-checking…', ''), null);
         if (!quickOk) runOCRTesseractFull();
         return;
       }
@@ -981,33 +1019,33 @@ async function doOCR(){
 }
 function runOCRTesseractFull(){
   ocrBusy = ocrBusy.then(async () => finishOCR(await tesseractOCR(2), 'Tesseract'))
-    .catch(e => { setStatus(''); toast('อ่านภาพไม่สำเร็จ: ' + (e.message||e), 'bad'); });
+    .catch(e => { setStatus(''); toast('Scan failed: ' + (e.message||e), 'bad'); });
 }
 
-/** เอาผล Google มาเติม: ติ๊กคนที่ตกหล่น แก้ดาเมจ และล้างชื่อแปลก ๆ ที่ Tesseract อ่านผิด */
+/** Apply Google result: tick missed players, fix DMG, clear Tesseract misreads */
 function refineWithGoogle(found, secs){
   const before = new Map([...state.selected].map(([k, v]) => [k, v.contribution || 0]));
   const quickFresh = new Set(state.fresh);
   mergeResults(found);
   const added = [...state.selected.keys()].filter(n => !before.has(n));
   const fixed = [...state.selected].filter(([n, v]) => before.has(n) && (v.contribution || 0) !== before.get(n)).length;
-  // ชื่อที่ไม่อยู่ในรายชื่อจาก Tesseract: ถ้า Google จับคู่ได้ (ดาเมจเท่ากัน) หรือ Google ไม่เห็นชื่อนั้นเลย ให้ตัดทิ้ง
+  // Drop Tesseract-only unknown names that Google matched (same DMG) or never saw
   const gRaw = new Set(found.filter(f => !f.member).map(f => lc(f.name)));
   const gNums = new Set(found.filter(f => f.member && f.contribution).map(f => f.contribution));
   state.unmatched = state.unmatched.filter(u => gRaw.has(lc(u.raw)) || (!gNums.has(u.contribution) && !u.quick));
   state.fresh = new Set(added);
   const total = found.filter(f => f.member).length;
-  setStatus(`[Google OCR ✓ ${secs} วิ] ยืนยันแล้ว ${total} คน` +
-    (added.length ? ` · เพิ่มที่ตกหล่น ${added.length} คน (${added.slice(0,4).join(', ')}${added.length>4?'…':''})` : ' · ไม่มีชื่อตกหล่น') +
-    (fixed ? ` · แก้ดาเมจ ${fixed} คน` : '') +
-    (state.unmatched.length ? ` · ไม่อยู่ในรายชื่อ ${state.unmatched.length} ชื่อ` : ''), null);
+  setStatus(`[Google OCR ✓ ${secs}s] Confirmed ${total} players` +
+    (added.length ? ` · added ${added.length} missed (${added.slice(0,4).join(', ')}${added.length>4?'…':''})` : ' · nothing missed') +
+    (fixed ? ` · DMG fixed for ${fixed}` : '') +
+    (state.unmatched.length ? ` · ${state.unmatched.length} not on roster` : ''), null);
   renderMembers(); renderUnmatched();
   setTimeout(() => { state.fresh.clear(); }, 1700);
-  if (added.length) toast(`Google OCR เพิ่มชื่อที่ตกหล่น ${added.length} คน`, 'ok');
+  if (added.length) toast(`Google OCR added ${added.length} missed player(s)`, 'ok');
 }
 function finishOCR(found, engine){
-  const r = mergeResults(found, engine === 'ด่วน');
-  setStatus(`[${engine}] อ่านได้ ${found.length} รายการ · ติ๊กสมาชิกให้แล้ว ${r.matched} คน` + (r.unmatched ? ` · ไม่อยู่ในรายชื่อ ${r.unmatched} ชื่อ` : ''), null);
+  const r = mergeResults(found, engine === 'Quick');
+  setStatus(`[${engine}] Read ${found.length} · ticked ${r.matched} players` + (r.unmatched ? ` · ${r.unmatched} not on roster` : ''), null);
   $('search').value = ''; $('noteFilter').value = '';
   renderMembers(); renderUnmatched();
   $('mlist').scrollTop = 0;
@@ -1015,16 +1053,17 @@ function finishOCR(found, engine){
 }
 
 /* parse + fuzzy match */
+// Rank words (also Thai game client ranks) used to spot player rows
 const RANKS = /\b(member|guardian|elite|leader|officer|commander|knight|master|vice)\b|สมาชิก|ผู้นำ|ผู้พิทักษ์/i;
 const STOP = new Set(['name','rank','clan','contribution','loot','participant','member','guardian','lineage2m','lineage','elite','leader','total','kill','time','boss']);
 const NUM_RE = /(\d{1,3}(?:[,.]\d{3})+|\d{4,})(?!\s*\/)/g;
-// ตัวอักษรที่ OCR มักอ่านสลับกัน (เช่น 9ee -> Jee / gee)
+// Characters OCR often confuses (e.g. 9ee -> Jee / gee)
 const CONFUSE = [['9','g','q','j'], ['0','o','d','q'], ['1','l','i','|','!','j','t'], ['5','s'],
   ['8','b','3'], ['6','b','g'], ['2','z'], ['4','a'], ['7','t'], ['e','c'], ['u','v'], ['n','h']];
 const CONF = new Map();
 CONFUSE.forEach(g => g.forEach(a => g.forEach(b => { if (a !== b) CONF.set(a + b, true); })));
 function norm(s){ return String(s).toLowerCase().replace(/[^\p{L}\p{N}|!]/gu,''); }
-// ระยะห่างแบบถ่วงน้ำหนัก: สลับตัวที่หน้าตาคล้ายกัน = 0.25, ตัวอื่น = 1
+// Weighted edit distance: look-alike swap = 0.25, other = 1
 function wlev(a,b){
   const m=a.length, n=b.length; if(!m) return n; if(!n) return m;
   let prev=Array.from({length:n+1},(_,j)=>j), cur=new Array(n+1);
@@ -1041,14 +1080,14 @@ function similarity(a,b){
   const x=norm(a), y=norm(b);
   if(!x||!y) return 0; if(x===y) return 1;
   const d = wlev(x,y);
-  // ชื่อสั้น (≤3 ตัว): ยอมเฉพาะตัวที่หน้าตาคล้ายกันสลับได้ 1 ตัว และความยาวต้องเท่ากัน
+  // Short names (≤3 chars): allow only 1 look-alike swap, same length
   if (Math.min(x.length,y.length) <= 3) return (x.length === y.length && d <= 0.25) ? 0.9 : 0;
   return 1 - d/Math.max(x.length,y.length);
 }
 function parseSmart(text){
   const found = parseText(text);
   if (!found.length || found.some(f => f.contribution)) return found;
-  // Google OCR บางครั้งแยกคอลัมน์ Contribution ออกเป็นบรรทัดของตัวเอง -> จับคู่ตามลำดับ
+  // Google OCR sometimes puts Contribution on separate lines -> pair by order
   const nums = [];
   for (const raw of text.split('\n')){
     const t = raw.trim();
@@ -1067,11 +1106,11 @@ function mergeFound(a, b){
     const prev = map.get(key);
     if (!prev || f.contribution > prev.contribution) map.set(key, f);
   }
-  // ชื่อที่ไม่ match แต่อีกรอบ match เป็นสมาชิกแล้ว ให้ตัดทิ้ง
+  // Drop unknown names that the other pass matched to a member
   const out = [...map.values()];
   return out.filter(f => f.member || !out.some(g => g.member && g.contribution && g.contribution === f.contribution));
 }
-// รายชื่อสำหรับจับคู่: ชื่อจริง + Alias (ชื่อที่ OCR มักอ่านผิด)
+// Match pool: real names + aliases (common OCR misreads)
 function activePool(){
   const out = [];
   data.members.filter(m => m.status !== 'Inactive').forEach(m => {
@@ -1083,7 +1122,7 @@ function activePool(){
 function bestMember(token, pool){
   let best=null, score=0;
   for (const e of pool){
-    // Alias ต้องตรงเป๊ะ (ไม่สนตัวพิมพ์เล็กใหญ่) เพื่อกันจับผิดคน
+    // Aliases must match exactly (case-insensitive) to avoid wrong ticks
     const s = e.alias ? (lc(token) === lc(e.key) ? 1 : 0) : similarity(token, e.key);
     if (s > score){ score = s; best = e.name; }
   }
@@ -1094,10 +1133,10 @@ function parseText(text){
   for (const raw of text.split('\n')){
     const line = raw.trim(); if (!line) continue;
     const nums = [...line.matchAll(NUM_RE)].map(m => parseInt(m[1].replace(/[,.]/g,''),10));
-    const valid = nums.filter(n => n < 50000000);   // ตัดเลขเงินในเกมทิ้ง
+    const valid = nums.filter(n => n < 50000000);   // ignore in-game adena numbers
     if (nums.length && !valid.length) continue;
     let contribution = valid.length ? valid[valid.length-1] : 0;
-    if (!contribution && RANKS.test(line)){   // Contribution น้อยกว่า 1,000 เช่น 333
+    if (!contribution && RANKS.test(line)){   // Contribution under 1,000, e.g. 333
       const small = [...line.matchAll(/(?:^|\s)(\d{1,3})(?=\s|$)/g)].pop();
       if (small) contribution = parseInt(small[1], 10);
     }
@@ -1118,7 +1157,7 @@ function mergeResults(found, quick){
   let matched=0, unmatched=0;
   state.fresh = new Set();
   for (const f of found){
-    if (f.member && state.userUnchecked?.has(f.name)) continue;   // คนที่ผู้ใช้เอาออกเอง ไม่ติ๊กกลับ
+    if (f.member && state.userUnchecked?.has(f.name)) continue;   // don't re-tick players the user unticked
     if (f.member){
       const prev = state.selected.get(f.name);
       state.selected.set(f.name, { contribution:Math.max(prev?.contribution||0, f.contribution), source:'scan' });
@@ -1134,12 +1173,12 @@ function renderUnmatched(){
   $('unmatched').classList.toggle('on', state.unmatched.length > 0);
   $('umList').innerHTML = state.unmatched.map((u,i) => `
     <div class="um-item" data-i="${i}">
-      <input type="text" value="${esc(u.raw)}" aria-label="แก้ชื่อ">
+      <input type="text" value="${esc(u.raw)}" aria-label="Fix name">
       <span class="num">${fmt(u.contribution)}</span>
-      <button class="btn small" data-act="pick" title="เลือกเฉพาะรอบนี้">เลือก</button>
-      <button class="btn small" data-act="link" title="ชื่อนี้คือสมาชิกที่ OCR อ่านผิด: ผูกเป็น Alias ครั้งหน้าจะติ๊กให้อัตโนมัติ">🔗 ผูก</button>
-      <button class="btn small" data-act="add" title="เพิ่มเป็นสมาชิกถาวร">+ สมาชิก</button>
-      <button class="btn small ghost" data-act="drop" aria-label="ไม่ใช้ชื่อนี้">✕</button>
+      <button class="btn small" data-act="pick" title="Count for this run only">Pick</button>
+      <button class="btn small" data-act="link" title="This is a misread of a member: save as Alias, auto-ticked next time">🔗 Link</button>
+      <button class="btn small" data-act="add" title="Add as a new member">+ Member</button>
+      <button class="btn small ghost" data-act="drop" aria-label="Ignore this name">✕</button>
     </div>`).join('');
 }
 $('umList').addEventListener('click', async e => {
@@ -1152,7 +1191,7 @@ $('umList').addEventListener('click', async e => {
     try{
       const j = await apiPost({ action:'addMembers', names:[name] });
       data.members = j.members; saveData(); renderAdmin();
-      toast(`เพิ่ม ${name} เป็นสมาชิกแล้ว`, 'ok');
+      toast(`${name} added to roster`, 'ok');
     }catch(err){ toast(err.message, 'bad'); return; }
   }
   if (btn.dataset.act !== 'drop'){
@@ -1165,27 +1204,27 @@ $('umList').addEventListener('click', async e => {
 
 function linkAlias(u, i, raw){
   const opts = data.members.filter(m => m.status !== 'Inactive').map(m => m.name).sort(byName);
-  // เดาคนที่ใกล้เคียงที่สุดให้ก่อน
+  // pre-fill the closest member
   let guess = '', best = 0;
   opts.forEach(n => { const sc = similarity(raw, n); if (sc > best){ best = sc; guess = n; } });
   if (best < 0.5) guess = '';
   openModal({
-    title: 'ผูกชื่อที่อ่านผิดกับสมาชิก',
-    okText: 'ผูกและเลือก',
-    body: `<p class="note" style="margin:0">OCR อ่านได้ว่า <b style="color:var(--gold)">${esc(raw)}</b> — เลือกสมาชิกที่ถูกต้อง<br>
-        ระบบจะจำ "${esc(raw)}" เป็น Alias ครั้งหน้าสแกนเจอจะติ๊กให้อัตโนมัติ</p>
-      <label class="field"><span>สมาชิก</span>
-        <input type="text" id="la-name" list="la-list" value="${esc(guess)}" placeholder="พิมพ์ชื่อสมาชิก…">
+    title: 'Link misread name to a member',
+    okText: 'Link & Pick',
+    body: `<p class="note" style="margin:0">OCR read <b style="color:var(--gold)">${esc(raw)}</b> — pick the right member<br>
+        "${esc(raw)}" will be saved as an Alias and auto-ticked next time</p>
+      <label class="field"><span>Member</span>
+        <input type="text" id="la-name" list="la-list" value="${esc(guess)}" placeholder="Type a member name…">
         <datalist id="la-list">${opts.map(n => `<option value="${esc(n)}">`).join('')}</datalist></label>`,
     onOk: async () => {
       const name = data.members.find(m => lc(m.name) === lc($('la-name').value.trim()))?.name;
-      if (!name) throw new Error('ไม่พบสมาชิกชื่อนี้ เลือกจากรายการ');
+      if (!name) throw new Error('Member not found — pick from the list');
       const j = await apiPost({ action:'addAlias', name, alias:raw });
       data.members = j.members; saveData(); renderAdmin();
       state.selected.set(name, { contribution:u.contribution, source:'scan' });
       state.unmatched.splice(i, 1);
       renderUnmatched(); renderMembers();
-      toast(`ผูก "${raw}" → ${name} แล้ว`, 'ok');
+      toast(`Linked "${raw}" → ${name}`, 'ok');
     }
   });
 }
@@ -1195,10 +1234,10 @@ $('btnSave').onclick = () => saveRecord();
 
 async function saveRecord(extra = {}){
   const name = $('target').value;
-  const label = state.type === 'event' ? 'กิจกรรม' : 'บอส';
-  if (!name){ toast(`เลือก${label}ก่อนบันทึก`, 'bad'); $('target').focus(); return; }
-  if (!state.selected.size){ toast('ยังไม่ได้เลือกสมาชิก', 'bad'); return; }
-  const btn = $('btnSave'); btn.disabled = true; btn.textContent = 'กำลังบันทึก…';
+  const label = state.type === 'event' ? 'event' : 'boss';
+  if (!name){ toast(`Select a ${label} first`, 'bad'); $('target').focus(); return; }
+  if (!state.selected.size){ toast('No players selected', 'bad'); return; }
+  const btn = $('btnSave'); btn.disabled = true; btn.textContent = 'Saving…';
   try{
     const kt = $('killTime').value ? new Date($('killTime').value).toISOString() : new Date().toISOString();
     const j = await apiPost(Object.assign({
@@ -1206,9 +1245,9 @@ async function saveRecord(extra = {}){
       points: Number(pts.value) || 0,
       participants: [...state.selected].map(([n, v]) => ({ name:n, contribution:v.contribution || 0 }))
     }, extra));
-    if (j.merged) toast(`รวมเข้ารอบเดิมแล้ว · เพิ่มใหม่ ${j.added} คน · อัปเดตดาเมจ ${j.updated} คน`, 'ok');
-    else if (j.replaced) toast(`แทนที่รอบเดิมแล้ว · บันทึก ${j.saved} คน`, 'ok');
-    else toast(`บันทึก ${name} แล้ว ${j.saved} คน`, 'ok');
+    if (j.merged) toast(`Merged · ${j.added} new · DMG updated for ${j.updated}`, 'ok');
+    else if (j.replaced) toast(`Replaced old run · saved ${j.saved} players`, 'ok');
+    else toast(`Saved ${name} · ${j.saved} players`, 'ok');
     state.selected.clear(); state.unmatched = []; state.sessionId = newSession();
     $('killTime').value = localInput(); $('target').value = '';
     renderUnmatched(); renderMembers();
@@ -1216,7 +1255,7 @@ async function saveRecord(extra = {}){
     if (e.data?.duplicate) showDuplicate(e.data.duplicate, name);
     else toast(e.message, 'bad');
   }
-  finally{ btn.textContent = 'บันทึกลง Google Sheet'; btn.disabled = !state.selected.size; }
+  finally{ btn.textContent = 'Save to Sheet'; btn.disabled = !state.selected.size; }
 }
 
 function showDuplicate(d, name){
@@ -1226,19 +1265,19 @@ function showDuplicate(d, name){
   const missing = d.members.filter(n => !mine.some(m => lc(m) === lc(n)));
   const mins = Math.round(Math.abs(new Date(d.time) - new Date($('killTime').value || Date.now())) / 60000);
   openModal({
-    title: `${name} รอบนี้ถูกบันทึกไปแล้ว`,
+    title: `${name} — already saved`,
     okText: null,
     body: `<div class="dup-info">
-        พบรอบที่บันทึกไว้เมื่อ <b>${thDateTime(d.time)}</b> (ห่าง ${mins} นาที) · ${d.points} แต้ม · ${d.members.length} คน${d.recordedBy ? ` · โดย ${esc(d.recordedBy)}` : ''}
-        <div class="note" style="margin-top:6px">รายการนี้ของคุณ: ${mine.length} คน · <b style="color:var(--ok)">คนใหม่ที่ยังไม่มีในรอบเดิม ${newOnes.length} คน</b>${newOnes.length ? ` (${newOnes.slice(0,8).map(esc).join(', ')}${newOnes.length > 8 ? '…' : ''})` : ''}</div>
-        ${missing.length ? `<div class="note">มีในรอบเดิมแต่ไม่มีในรายการนี้ ${missing.length} คน (${missing.slice(0,8).map(esc).join(', ')}${missing.length > 8 ? '…' : ''})</div>` : ''}
+        A run was saved at <b>${thDateTime(d.time)}</b> (${mins} min apart) · ${d.points} pts · ${d.members.length} players${d.recordedBy ? ` · by ${esc(d.recordedBy)}` : ''}
+        <div class="note" style="margin-top:6px">Your list: ${mine.length} players · <b style="color:var(--ok)">${newOnes.length} not in the saved run</b>${newOnes.length ? ` (${newOnes.slice(0,8).map(esc).join(', ')}${newOnes.length > 8 ? '…' : ''})` : ''}</div>
+        ${missing.length ? `<div class="note">In the saved run but not in yours: ${missing.length} (${missing.slice(0,8).map(esc).join(', ')}${missing.length > 8 ? '…' : ''})</div>` : ''}
       </div>
-      <button class="btn primary choice" data-mode="merge"><b>รวมเข้ารอบเดิม (แนะนำ)</b>
-        <span>เพิ่มเฉพาะ ${newOnes.length} คนที่ยังไม่มี · อัปเดตดาเมจถ้าค่าใหม่สูงกว่า · คะแนนไม่ซ้ำ</span></button>
-      <button class="btn choice" data-mode="replace"><b>แทนที่รอบเดิม</b>
-        <span>ลบรอบเดิม ${d.members.length} คน แล้วใช้รายการนี้ ${mine.length} คนแทน</span></button>
-      <button class="btn choice" data-mode="new"><b>บันทึกเป็นรอบใหม่</b>
-        <span>กรณีเป็นการตีบอสคนละรอบจริง ๆ (คะแนนจะนับแยก)</span></button>`
+      <button class="btn primary choice" data-mode="merge"><b>Merge into saved run (recommended)</b>
+        <span>Adds only the ${newOnes.length} new players · updates DMG if higher · no double points</span></button>
+      <button class="btn choice" data-mode="replace"><b>Replace saved run</b>
+        <span>Deletes the saved run (${d.members.length} players) and uses your ${mine.length} instead</span></button>
+      <button class="btn choice" data-mode="new"><b>Save as a new run</b>
+        <span>Only if it really was a separate kill (points count separately)</span></button>`
   });
   $('dlgBody').querySelectorAll('.choice').forEach(b => b.onclick = () => {
     dlg.close();
@@ -1251,8 +1290,8 @@ segBind('histSeg', 'f', f => { state.histFilter = f; loadHistory(); });
 $('btnHistory').onclick = () => loadHistory();
 async function loadHistory(){
   const box = $('historyList');
-  if (!settings.apiUrl){ box.innerHTML = `<div class="empty-box">เชื่อม Google Sheet ในหน้า “ตั้งค่า” ก่อน</div>`; return; }
-  box.innerHTML = `<div class="empty-box">กำลังโหลด…</div>`;
+  if (!settings.apiUrl){ box.innerHTML = `<div class="empty-box">Connect Google Sheet in Settings first</div>`; return; }
+  box.innerHTML = `<div class="empty-box">Loading…</div>`;
   try{
     const j = await apiGet('history', { limit:60, type:state.histFilter });
     state.history = j.history; renderHistory();
@@ -1260,19 +1299,20 @@ async function loadHistory(){
 }
 function renderHistory(){
   const box = $('historyList');
-  if (!state.history.length){ box.innerHTML = `<div class="empty-box">ยังไม่มีการบันทึก</div>`; return; }
+  if (!state.history.length){ box.innerHTML = `<div class="empty-box">No runs yet</div>`; return; }
   box.innerHTML = state.history.map((h, i) => {
     const ev = lc(h.type) === 'event';
     return `<div class="sess" data-i="${i}">
       <div class="sess-head">
-        <span class="pill ${ev?'event':'boss'}">${ev?'กิจกรรม':'บอส'}</span>
+        <span class="pill ${ev?'event':'boss'}">${ev?'Event':'Boss'}</span>
         <b>${esc(h.name)}</b>
-        <span class="sess-meta">${thDateTime(h.time)} · ${h.points} แต้ม · ${h.members.length} คน${h.recordedBy ? ' · โดย ' + esc(h.recordedBy) : ''}</span>
+        <span class="sess-meta">${thDateTime(h.time)} · ${h.points} pts · ${h.members.length} players${h.recordedBy ? ' · by ' + esc(h.recordedBy) : ''}</span>
+        ${h.edits ? `<button class="editlink" data-act="log" title="See who added/removed what in this run">✎ Edited ${h.edits}×</button>` : ''}
         <span class="grow"></span>
-        <button class="btn small" data-act="add">+ เพิ่มชื่อ</button>
-        <button class="ibtn del" data-act="delete" title="ลบรอบนี้ทั้งหมด" aria-label="ลบรอบนี้">🗑</button>
+        <button class="btn small" data-act="add">+ Add</button>
+        <button class="ibtn del" data-act="delete" title="Delete this run" aria-label="Delete this run">🗑</button>
       </div>
-      <div class="chips">${h.members.map(m => `<span class="chip">${esc(m.name)}${noteTag(noteOf(m.name))}${m.contribution ? `<span class="c">${fmt(m.contribution)}</span>` : ''}<button data-act="remove" data-n="${esc(m.name)}" aria-label="เอา ${esc(m.name)} ออก">✕</button></span>`).join('')}</div>
+      <div class="chips">${h.members.map(m => `<span class="chip${m.late?' late':''}"${m.late ? ` title="Added later by ${esc(m.by)}${m.at ? ' · ' + thDateTime(m.at) : ''}"` : ''}>${m.late ? '<span class="lt">+</span>' : ''}${esc(m.name)}${noteTag(noteOf(m.name))}${m.contribution ? `<span class="c">${fmt(m.contribution)}</span>` : ''}<button data-act="remove" data-n="${esc(m.name)}" aria-label="Remove ${esc(m.name)}">✕</button></span>`).join('')}</div>
     </div>`;
   }).join('');
 }
@@ -1280,50 +1320,96 @@ $('historyList').addEventListener('click', e => {
   const btn = e.target.closest('button'); if (!btn) return;
   const h = state.history[+btn.closest('.sess').dataset.i];
   if (btn.dataset.act === 'add') openAddToSession(h);
+  if (btn.dataset.act === 'log') openSessionLog(h);
   if (btn.dataset.act === 'remove'){
     const n = btn.dataset.n;
-    confirmBox('เอาชื่อออก', `เอา <b>${esc(n)}</b> ออกจาก ${esc(h.name)} รอบนี้?`, 'เอาออก', async () => {
+    confirmBox('Remove player', `Remove <b>${esc(n)}</b> from this ${esc(h.name)} run?`, 'Remove', async () => {
       await apiPost({ action:'removeFromSession', sessionId:h.sessionId, name:n });
-      h.members = h.members.filter(m => m.name !== n); renderHistory();
-      toast(`เอา ${n} ออกแล้ว`, 'ok');
+      h.members = h.members.filter(m => m.name !== n); h.edits = (h.edits||0) + 1; renderHistory();
+      toast(`${n} removed`, 'ok');
     });
   }
   if (btn.dataset.act === 'delete'){
-    confirmBox('ลบรอบนี้', `ลบ <b>${esc(h.name)}</b> (${thDateTime(h.time)}) พร้อมรายชื่อทั้ง ${h.members.length} คน? ลบแล้วกู้คืนไม่ได้`, 'ลบ', async () => {
+    confirmBox('Delete run', `Delete <b>${esc(h.name)}</b> (${thDateTime(h.time)}) with all ${h.members.length} players? This can't be undone (it stays in Edit Logs).`, 'Delete', async () => {
       await apiPost({ action:'deleteSession', sessionId:h.sessionId });
       state.history = state.history.filter(x => x !== h); renderHistory();
-      toast('ลบรอบแล้ว', 'ok');
+      toast('Run deleted', 'ok');
     });
   }
 });
+/* ---------- Edit Logs (AuditLog) ---------- */
+state.log = []; state.histView = 'rounds';
+const ACT_KIND = a => /^(Deleted|Removed)/.test(a) ? 'del' : /^(Edited|Replaced)/.test(a) ? 'edit' : a === 'New run' ? 'new' : 'add';
+segBind('histView', 'v', v => {
+  state.histView = v;
+  $('historyList').hidden = v !== 'rounds'; $('logPanel').hidden = v !== 'log';
+  $('histSeg').hidden = v !== 'rounds'; $('histNote').hidden = v !== 'rounds';
+  if (v === 'log') loadLog(); else loadHistory();
+});
+async function loadLog(){
+  const box = $('logList');
+  if (!settings.apiUrl){ box.innerHTML = `<div class="empty-box">Connect Google Sheet in Settings first</div>`; return; }
+  box.innerHTML = `<div class="empty-box">Loading…</div>`;
+  try { const j = await apiGet('audit', { limit:500 }); state.log = j.log || []; renderLog(); }
+  catch (e) { box.innerHTML = `<div class="empty-box">${esc(e.message)}</div>`; }
+}
+function logItemHtml(l){
+  return `<div class="log-item">
+    <span class="when">${thDateTime(l.time)}</span>
+    <span class="what"><span class="actb ${ACT_KIND(l.action)}">${esc(l.action)}</span>
+      <b>${esc(l.target)}</b>
+      <span class="grow"></span>
+      <span class="who">👤 ${esc(l.by)}${l.device ? ` <span class="dev">· device ${esc(l.device)}</span>` : ''}</span></span>
+    <span class="det">${esc(l.detail)}</span>
+  </div>`;
+}
+function renderLog(){
+  const q = lc($('logSearch').value.trim()), cat = $('logCat').value, ak = $('logAct').value;
+  const rows = state.log.filter(l => (!cat || l.category === cat) && (!ak || ACT_KIND(l.action) === ak || (ak === 'add' && ACT_KIND(l.action) === 'new'))
+    && (!q || lc(l.by + ' ' + l.target + ' ' + l.detail + ' ' + l.action).includes(q)));
+  $('logList').innerHTML = rows.length ? rows.map(logItemHtml).join('')
+    : `<div class="empty-box">${state.log.length ? 'No matching entries' : 'No edits logged yet'}</div>`;
+}
+['logSearch','logCat','logAct'].forEach(id => $(id).addEventListener(id === 'logSearch' ? 'input' : 'change', renderLog));
+async function openSessionLog(h){
+  openModal({ title:`Edit Logs · ${h.name}`, okText:null, body:`<div class="empty-box">Loading…</div>` });
+  $('dlgCancel').textContent = 'Close';
+  try {
+    const j = await apiGet('audit', { sessionId:h.sessionId, limit:100 });
+    $('dlgBody').innerHTML = `<p class="note" style="margin:0">${thDateTime(h.time)} · newest first</p>
+      <div class="log">${(j.log || []).map(logItemHtml).join('') || '<div class="empty-box">No entries</div>'}</div>`;
+  } catch (e) { $('dlgBody').innerHTML = `<div class="empty-box">${esc(e.message)}</div>`; }
+}
+
 function openAddToSession(h){
   const have = new Set(h.members.map(m => lc(m.name)));
   const pool = activeNames().filter(n => !have.has(lc(n))).sort(byName);
   openModal({
-    title: `เพิ่มชื่อที่ตกหล่น · ${h.name}`,
-    okText: 'เพิ่มชื่อ',
-    body: `<p class="note" style="margin:0">${thDateTime(h.time)} · ${h.points} แต้ม · มีแล้ว ${h.members.length} คน</p>
-      <input type="search" id="ats-q" placeholder="ค้นหาชื่อ / Note…">
+    title: `Add missed players · ${h.name}`,
+    okText: 'Add',
+    body: `<p class="note" style="margin:0">${thDateTime(h.time)} · ${h.points} pts · ${h.members.length} already in</p>
+      <input type="search" id="ats-q" placeholder="Search name / Note…">
       <div class="mlist" id="ats-list" style="max-height:320px">${pool.length ? pool.map(n =>
         `<label class="m" data-n="${esc(n)}" data-note="${esc(noteOf(n))}"><input type="checkbox"><span class="n">${esc(n)}</span>${noteTag(noteOf(n))}</label>`).join('')
-        : '<div class="empty-box">สมาชิก Active ทุกคนอยู่ในรอบนี้แล้ว</div>'}</div>
-      <label class="field"><span>หรือพิมพ์ชื่อที่ไม่อยู่ในรายชื่อ (คั่นด้วย ,)</span><input type="text" id="ats-extra" placeholder="เช่น NewGuy, Guest01"></label>
-      <div class="count" id="ats-count">เลือก 0 คน</div>`,
+        : '<div class="empty-box">All active members are already in this run</div>'}</div>
+      <label class="field"><span>Or type names not on the roster (comma separated)</span><input type="text" id="ats-extra" placeholder="e.g. NewGuy, Guest01"></label>
+      <div class="count" id="ats-count">0 selected</div>`,
     onOk: async () => {
       const picked = [...$('ats-list').querySelectorAll('.m input:checked')].map(i => i.closest('.m').dataset.n);
       const extra = $('ats-extra').value.split(',').map(s => s.trim()).filter(Boolean);
       const names = [...new Set([...picked, ...extra])];
-      if (!names.length) throw new Error('ยังไม่ได้เลือกชื่อ');
+      if (!names.length) throw new Error('No names selected');
       const j = await apiPost({ action:'addToSession', sessionId:h.sessionId, names });
-      names.forEach(n => { if (!have.has(lc(n))) h.members.push({ name:n, contribution:0 }); });
+      names.forEach(n => { if (!have.has(lc(n))) h.members.push({ name:n, contribution:0, late:true, by:settings.recorder, at:new Date().toISOString() }); });
+      if (j.added) h.edits = (h.edits||0) + 1;
       renderHistory();
-      toast(`เพิ่มเข้า ${h.name} แล้ว ${j.added} คน`, 'ok');
+      toast(`Added ${j.added} to ${h.name}`, 'ok');
     }
   });
   const list = $('ats-list');
   list.addEventListener('change', e => {
     const m = e.target.closest('.m'); if (m) m.classList.toggle('on', e.target.checked);
-    $('ats-count').textContent = `เลือก ${list.querySelectorAll('input:checked').length} คน`;
+    $('ats-count').textContent = `${list.querySelectorAll('input:checked').length} selected`;
   });
   $('ats-q').addEventListener('input', e => {
     const q = lc(e.target.value.trim());
@@ -1335,10 +1421,10 @@ function openAddToSession(h){
 const DAY = 86400000;
 const ymd = d => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
 const parseYmd = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
-const addDays = (s, n) => ymd(parseYmd(s).getTime() + n*DAY + 3600000); // +1h กันปัญหา DST
+const addDays = (s, n) => ymd(parseYmd(s).getTime() + n*DAY + 3600000); // +1h avoids DST issues
 const daysBetween = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / DAY) + 1;
-const shortTh = s => parseYmd(s).toLocaleDateString('th-TH', { day:'numeric', month:'short' });
-const longTh = s => parseYmd(s).toLocaleDateString('th-TH', { weekday:'short', day:'numeric', month:'short', year:'2-digit' });
+const shortTh = s => parseYmd(s).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+const longTh = s => parseYmd(s).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short', year:'2-digit' });
 
 state.range = Object.assign({ preset:'7d', from:'', to:'' }, LS.get('bt.recapRange', {}));
 state.recapDays = []; state.recapSessions = [];
@@ -1371,7 +1457,7 @@ function renderPeriod(){
   $('customRange').hidden = preset !== 'custom';
   $('rFrom').value = from; $('rTo').value = to;
   const all = !from && !to;
-  $('rLabel').textContent = all ? 'ทุกช่วงเวลา' : from === to ? longTh(from) : `${shortTh(from)} – ${shortTh(to)} ${parseYmd(to).toLocaleDateString('th-TH',{year:'2-digit'})}`;
+  $('rLabel').textContent = all ? 'All time' : from === to ? longTh(from) : `${shortTh(from)} – ${shortTh(to)} ${parseYmd(to).toLocaleDateString('en-GB',{year:'2-digit'})}`;
   $('rPrev').disabled = $('rNext').disabled = all;
   $('rNext').disabled = all || to >= ymd(new Date());
 }
@@ -1394,8 +1480,8 @@ $('recapHideInactive').addEventListener('change', renderRecap);
 async function loadRecap(){
   const body = $('recapBody');
   renderPeriod();
-  if (!settings.apiUrl){ body.innerHTML = `<tr><td colspan="9" class="note">เชื่อม Google Sheet ในหน้า “ตั้งค่า” ก่อน</td></tr>`; return; }
-  body.innerHTML = `<tr><td colspan="9" class="note">กำลังโหลด…</td></tr>`;
+  if (!settings.apiUrl){ body.innerHTML = `<tr><td colspan="9" class="note">Connect Google Sheet in Settings first</td></tr>`; return; }
+  body.innerHTML = `<tr><td colspan="9" class="note">Loading…</td></tr>`;
   try{
     const j = await apiGet('recap', { type:state.recapFilter, from:state.range.from, to:state.range.to });
     state.recap = j.recap; state.recapDays = j.days || []; state.recapSessions = j.sessions || [];
@@ -1405,7 +1491,7 @@ async function loadRecap(){
 
 function renderRecap(){
   const q = lc($('recapSearch').value.trim()), hide = $('recapHideInactive').checked, nf = $('recapNote').value;
-  // จัดอันดับหลังกรอง Note / ซ่อนคนเลิกเล่น (ค้นหาชื่อไม่เปลี่ยนอันดับ)
+  // Rank after Note / inactive filters (search does not change rank)
   let rank = 0;
   const ranked = state.recap.map(r => ({ ...r, note: noteOf(r.name) }))
     .filter(r => noteMatch(r.note, nf) && (!hide || r.status !== 'Inactive'))
@@ -1413,19 +1499,19 @@ function renderRecap(){
   const rows = ranked.filter(r => !q || lc(r.name).includes(q) || lc(r.note).includes(q));
   const maxPts = Math.max(1, ...ranked.map(r => r.points));
 
-  // การ์ดสรุป
+  // Summary cards
   const ses = state.recapSessions, bossS = ses.filter(x => x.type === 'boss').length;
   const sum = (a, k) => a.reduce((t, x) => t + (x[k] || 0), 0);
   $('stRounds').textContent = fmt(ses.length) || '0';
-  $('stRoundsSub').textContent = `บอส ${bossS} · กิจกรรม ${ses.length - bossS}`;
+  $('stRoundsSub').textContent = `Boss ${bossS} · Event ${ses.length - bossS}`;
   $('stPeople').textContent = fmt(ranked.length) || '0';
   const attend = sum(ranked, 'count');
-  $('stPeopleSub').textContent = ses.length ? `เฉลี่ย ${(sum(ses,'count') / ses.length).toFixed(1)} คน/รอบ` : '\u00a0';
+  $('stPeopleSub').textContent = ses.length ? `avg ${(sum(ses,'count') / ses.length).toFixed(1)} per run` : '\u00a0';
   $('stPoints').textContent = (Math.round(sum(ranked,'points')*10)/10).toLocaleString('en-US');
-  $('stPointsSub').textContent = ranked.length ? `เฉลี่ย ${(sum(ranked,'points')/ranked.length).toFixed(1)} แต้ม/คน` : '\u00a0';
+  $('stPointsSub').textContent = ranked.length ? `avg ${(sum(ranked,'points')/ranked.length).toFixed(1)} pts per player` : '\u00a0';
   const dmg = sum(ranked, 'contribution');
   $('stDmg').textContent = dmg >= 1e6 ? (dmg/1e6).toFixed(2) + 'M' : (fmt(dmg) || '0');
-  $('stDmgSub').textContent = ranked[0] ? `เข้าร่วมรวม ${fmt(attend) || 0} ครั้ง` : '\u00a0';
+  $('stDmgSub').textContent = ranked[0] ? `${fmt(attend) || 0} total attendances` : '\u00a0';
 
   renderChart(); renderRounds();
 
@@ -1433,11 +1519,11 @@ function renderRecap(){
       <td>${r.rank <= 3 ? `<span class="medal g${r.rank}">${r.rank}</span>` : r.rank}</td>
       <td>${r.rank <= 3 ? `<b>${esc(r.name)}</b>` : esc(r.name)}</td>
       <td>${noteTag(r.note) || '<span class="note">-</span>'}</td>
-      <td><span class="pill ${lc(r.status)}">${r.status==='Unknown'?'ไม่อยู่ในรายชื่อ':esc(r.status)}</span></td>
+      <td><span class="pill ${lc(r.status)}">${r.status==='Unknown'?'Not on roster':esc(r.status)}</span></td>
       <td class="num"><div class="ptbar"><span class="track"><i style="width:${Math.round(r.points/maxPts*100)}%"></i></span><b>${r.points}</b></div></td>
       <td class="num">${r.boss}</td><td class="num">${r.event}</td><td class="num">${r.days}</td>
       <td class="num">${fmt(r.contribution) || '-'}</td></tr>`).join('')
-    : `<tr><td colspan="9" class="note">ไม่มีข้อมูลในช่วงเวลานี้</td></tr>`;
+    : `<tr><td colspan="9" class="note">No data in this period</td></tr>`;
 }
 
 function renderChart(){
@@ -1448,13 +1534,13 @@ function renderChart(){
   $('chartBox').hidden = !from || single;
   if ($('chartBox').hidden) return;
   let n = daysBetween(from, to), note = '';
-  if (n > 92){ from = addDays(to, -91); n = 92; note = ' (แสดง 92 วันล่าสุด)'; }
+  if (n > 92){ from = addDays(to, -91); n = 92; note = ' (last 92 days)'; }
   const byDay = Object.fromEntries(days.map(d => [d.date, d]));
   const list = Array.from({ length:n }, (_, i) => byDay[addDays(from, i)] || { date:addDays(from, i), attend:0, bossAttend:0, eventAttend:0, sessions:0, points:0 });
   const max = Math.max(1, ...list.map(d => d.attend));
-  $('chartTitle').textContent = `จำนวนคนเข้าร่วมรายวัน${note} · คลิกแท่งเพื่อดูวันนั้น`;
+  $('chartTitle').textContent = `Daily attendance${note} · click a bar to view that day`;
   $('chart').innerHTML = list.map(d => `<div class="bar${d.attend?'':' zero'}" data-d="${d.date}"
-      title="${longTh(d.date)}\n${d.sessions} รอบ · ${d.attend} คน-ครั้ง · ${Math.round(d.points*10)/10} แต้ม">
+      title="${longTh(d.date)}\n${d.sessions} runs · ${d.attend} attendances · ${Math.round(d.points*10)/10} pts">
       <span class="num">${d.attend || ''}</span>
       <div class="stack" style="height:${Math.max(2, d.attend/max*110)}px">
         <div class="sb" style="flex:${d.bossAttend||0}"></div><div class="se" style="flex:${d.eventAttend||0}"></div>
@@ -1474,27 +1560,27 @@ function renderRounds(){
   $('roundsBox').hidden = !single;
   if (!single) return;
   const ses = [...state.recapSessions].sort((a, b) => a.time < b.time ? -1 : 1);
-  $('roundsTitle').textContent = `รอบที่บันทึก · ${longTh(from)} · ${ses.length} รอบ`;
+  $('roundsTitle').textContent = `Runs · ${longTh(from)} · ${ses.length} total`;
   $('rounds').innerHTML = ses.length ? ses.map(x => `<div class="round">
-      <span class="t">${new Date(x.time).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</span>
-      <span class="pill ${x.type}">${x.type==='event'?'กิจกรรม':'บอส'}</span>
+      <span class="t">${new Date(x.time).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+      <span class="pill ${x.type}">${x.type==='event'?'Event':'Boss'}</span>
       <b>${esc(x.name)}</b>
-      <span class="c">${x.count} คน</span>
-      <span class="p">${x.points} แต้ม</span></div>`).join('')
-    : `<div class="empty-box" style="padding:12px">ไม่มีการบันทึกในวันนี้</div>`;
+      <span class="c">${x.count} players</span>
+      <span class="p">${x.points} pts</span></div>`).join('')
+    : `<div class="empty-box" style="padding:12px">No runs this day</div>`;
 }
 
 $('btnCopyRecap').onclick = async () => {
   const nf = $('recapNote').value, hide = $('recapHideInactive').checked;
   const list = state.recap.filter(r => noteMatch(noteOf(r.name), nf) && (!hide || r.status !== 'Inactive'));
-  if (!list.length){ toast('ยังไม่มีข้อมูลให้คัดลอก', 'bad'); return; }
-  const type = { all:'', boss:' (บอส)', event:' (กิจกรรม)' }[state.recapFilter];
-  const head = `📊 สรุปคะแนน${type} · ${$('rLabel').textContent}${nf && nf !== '__none' ? ' · ' + nf : ''}\n` +
-    `รอบที่บันทึก ${state.recapSessions.length} รอบ · ผู้เข้าร่วม ${list.length} คน\n`;
+  if (!list.length){ toast('Nothing to copy yet', 'bad'); return; }
+  const type = { all:'', boss:' (Boss)', event:' (Event)' }[state.recapFilter];
+  const head = `📊 Leaderboard${type} · ${$('rLabel').textContent}${nf && nf !== '__none' ? ' · ' + nf : ''}\n` +
+    `Runs: ${state.recapSessions.length} · Players: ${list.length}\n`;
   const medal = ['🥇','🥈','🥉'];
-  const body = list.map((r, i) => `${medal[i] || (i+1) + '.'} ${r.name} — ${r.points} แต้ม (บอส ${r.boss}${r.event ? ` · กิจกรรม ${r.event}` : ''})`).join('\n');
-  try { await navigator.clipboard.writeText(head + body); toast('คัดลอกแล้ว วางใน Discord ได้เลย', 'ok'); }
-  catch { toast('คัดลอกไม่ได้ ลองใหม่อีกครั้ง', 'bad'); }
+  const body = list.map((r, i) => `${medal[i] || (i+1) + '.'} ${r.name} — ${r.points} pts (Boss ${r.boss}${r.event ? ` · Event ${r.event}` : ''})`).join('\n');
+  try { await navigator.clipboard.writeText(head + body); toast('Copied — paste it in Discord', 'ok'); }
+  catch { toast('Copy failed, try again', 'bad'); }
 };
 
 /* ================= ADMIN ================= */
@@ -1521,13 +1607,13 @@ function renderMemAdmin(){
       <td><span class="pill ${m.status==='Inactive'?'inactive':'active'}">${m.status==='Inactive'?'○ Inactive':'● Active'}</span></td>
       <td>${thDate(m.joined)}</td>
       <td>${noteTag((m.note||'').trim()) || '<span class="note">-</span>'}</td>
-      <td class="act"><button class="ibtn" data-act="edit" aria-label="แก้ไข ${esc(m.name)}">✎</button><button class="ibtn del" data-act="del" aria-label="ลบ ${esc(m.name)}">🗑</button></td>
-    </tr>`).join('') : `<tr><td colspan="5" class="note">ไม่มีข้อมูล</td></tr>`;
-  $('memPager').innerHTML = pages > 1 ? `<button class="btn small" data-pg="-1"${state.memPage===1?' disabled':''}>‹ ก่อนหน้า</button>
-      <span>หน้า ${state.memPage} / ${pages}</span>
-      <button class="btn small" data-pg="1"${state.memPage===pages?' disabled':''}>ถัดไป ›</button>` : '';
+      <td class="act"><button class="ibtn" data-act="edit" aria-label="Edit ${esc(m.name)}">✎</button><button class="ibtn del" data-act="del" aria-label="Delete ${esc(m.name)}">🗑</button></td>
+    </tr>`).join('') : `<tr><td colspan="5" class="note">No data</td></tr>`;
+  $('memPager').innerHTML = pages > 1 ? `<button class="btn small" data-pg="-1"${state.memPage===1?' disabled':''}>‹ Prev</button>
+      <span>Page ${state.memPage} / ${pages}</span>
+      <button class="btn small" data-pg="1"${state.memPage===pages?' disabled':''}>Next ›</button>` : '';
   const act = all.filter(m => m.status !== 'Inactive').length;
-  $('memMeta').textContent = `แสดง ${slice.length} จาก ${list.length} คน · ทั้งหมด ${all.length} · Active ${act} · Inactive ${all.length-act}`;
+  $('memMeta').textContent = `Showing ${slice.length} of ${list.length} · Total ${all.length} · Active ${act} · Inactive ${all.length-act}`;
 }
 $('memPager').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -1538,31 +1624,31 @@ $('memBody').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const m = data.members.find(x => x.name === b.closest('tr').dataset.n);
   if (b.dataset.act === 'edit') memberForm(m);
-  if (b.dataset.act === 'del') confirmBox('ลบสมาชิก',
-    `ลบ <b>${esc(m.name)}</b> ออกจากรายชื่อ?<br>ประวัติการลงบอสเดิมยังอยู่ ถ้าแค่เลิกเล่น แนะนำให้เปลี่ยนสถานะเป็น Inactive แทน`, 'ลบ',
-    async () => { const j = await apiPost({ action:'deleteMember', name:m.name }); data.members = j.members; saveData(); renderAll(); toast(`ลบ ${m.name} แล้ว`, 'ok'); });
+  if (b.dataset.act === 'del') confirmBox('Delete member',
+    `Remove <b>${esc(m.name)}</b> from the roster?<br>Past runs are kept. If they just quit, set them to Inactive instead.`, 'Delete',
+    async () => { const j = await apiPost({ action:'deleteMember', name:m.name }); data.members = j.members; saveData(); renderAll(); toast(`${m.name} deleted`, 'ok'); });
 });
 function memberForm(m){
   openModal({
-    title: m ? `แก้ไขสมาชิก · ${m.name}` : 'เพิ่มสมาชิก',
-    body: `<label class="field"><span>ชื่อ IGN</span><input type="text" id="f-name" value="${esc(m?.name)}" placeholder="ชื่อตัวละครให้ตรงกับในเกม"></label>
-      <label class="switch"><span>สถานะ: <b id="f-st-label">${m?.status==='Inactive'?'Inactive (เลิกเล่น)':'Active (เล่นอยู่)'}</b></span><input type="checkbox" id="f-status"${m?.status==='Inactive'?'':' checked'}></label>
-      <p class="note" style="margin:-4px 0 0">สมาชิก Inactive ยังอยู่ในประวัติและสรุปคะแนน แต่จะไม่ขึ้นในรายชื่อตอนบันทึกบอสใหม่ และไม่ถูกติ๊กจากการสแกน</p>
-      <label class="field"><span>เริ่มเป็นสมาชิกตั้งแต่</span><input type="date" id="f-joined" value="${esc(m?.joined || today())}"></label>
-      <label class="field"><span>Note (เช่น ชื่อแคลน/กลุ่ม)</span><input type="text" id="f-note" value="${esc(m?.note)}" placeholder="เช่น DREADTIDE / RIPTIDE" list="f-notes">
+    title: m ? `Edit member · ${m.name}` : 'Add member',
+    body: `<label class="field"><span>IGN</span><input type="text" id="f-name" value="${esc(m?.name)}" placeholder="Exactly as in game"></label>
+      <label class="switch"><span>Status: <b id="f-st-label">${m?.status==='Inactive'?'Inactive (quit)':'Active (playing)'}</b></span><input type="checkbox" id="f-status"${m?.status==='Inactive'?'':' checked'}></label>
+      <p class="note" style="margin:-4px 0 0">Inactive members stay in History and the Leaderboard, but won't show up for new runs or get ticked by scans.</p>
+      <label class="field"><span>Joined</span><input type="date" id="f-joined" value="${esc(m?.joined || today())}"></label>
+      <label class="field"><span>Note (e.g. clan / group)</span><input type="text" id="f-note" value="${esc(m?.note)}" placeholder="e.g. DREADTIDE / RIPTIDE" list="f-notes">
         <datalist id="f-notes">${[...new Set(data.members.map(x => (x.note||'').trim()).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('')}</datalist></label>
-      <label class="field"><span>Alias · ชื่อที่ OCR มักอ่านผิด (คั่นด้วย ,)</span><input type="text" id="f-alias" value="${esc(m?.alias)}" placeholder="เช่น Jee, gee"></label>`,
+      <label class="field"><span>Alias · common OCR misreads (comma separated)</span><input type="text" id="f-alias" value="${esc(m?.alias)}" placeholder="e.g. Jee, gee"></label>`,
     onOk: async () => {
       const name = $('f-name').value.trim();
-      if (!name) throw new Error('กรุณาใส่ชื่อ');
+      if (!name) throw new Error('Please enter a name');
       const j = await apiPost({ action:'saveMember', original:m?.name || '', name,
         status: $('f-status').checked ? 'Active' : 'Inactive', joined:$('f-joined').value, note:$('f-note').value.trim(),
         alias:$('f-alias').value.trim() });
       data.members = j.members; saveData(); renderAll();
-      toast(m ? `แก้ไข ${name} แล้ว` : `เพิ่ม ${name} แล้ว`, 'ok');
+      toast(m ? `${name} updated` : `${name} added`, 'ok');
     }
   });
-  $('f-status').onchange = e => $('f-st-label').textContent = e.target.checked ? 'Active (เล่นอยู่)' : 'Inactive (เลิกเล่น)';
+  $('f-status').onchange = e => $('f-st-label').textContent = e.target.checked ? 'Active (playing)' : 'Inactive (quit)';
 }
 $('btnBulk').onclick = e => busy(e.currentTarget, async () => {
   const names = $('bulk').value.split('\n').map(s => s.trim()).filter(Boolean);
@@ -1570,14 +1656,14 @@ $('btnBulk').onclick = e => busy(e.currentTarget, async () => {
   try{
     const j = await apiPost({ action:'addMembers', names });
     data.members = j.members; saveData(); renderAll(); $('bulk').value = '';
-    toast(`เพิ่มสมาชิกใหม่ ${j.added} คน` + (names.length > j.added ? ` (ซ้ำ ${names.length-j.added})` : ''), 'ok');
+    toast(`Added ${j.added} new member(s)` + (names.length > j.added ? ` (${names.length-j.added} already existed)` : ''), 'ok');
   }catch(err){ toast(err.message, 'bad'); }
 });
 
 /* bosses & events */
 const CAT = {
-  bosses: { label:'บอส', body:'bossBody', search:'bossSearch', count:'bossCount' },
-  events: { label:'กิจกรรม', body:'eventBody', search:'eventSearch', count:'eventCount' }
+  bosses: { label:'Boss', body:'bossBody', search:'bossSearch', count:'bossCount' },
+  events: { label:'Event', body:'eventBody', search:'eventSearch', count:'eventCount' }
 };
 function renderCatalog(kind){
   const c = CAT[kind], q = lc($(c.search).value.trim());
@@ -1585,8 +1671,8 @@ function renderCatalog(kind){
   $(c.count).textContent = `(${data[kind].length})`;
   $(c.body).innerHTML = list.length ? list.map(x => `<tr data-n="${esc(x.name)}">
       <td><b>${esc(x.name)}</b></td><td class="num">${x.points}</td>
-      <td class="act"><button class="ibtn" data-act="edit" aria-label="แก้ไข ${esc(x.name)}">✎</button><button class="ibtn del" data-act="del" aria-label="ลบ ${esc(x.name)}">🗑</button></td>
-    </tr>`).join('') : `<tr><td colspan="3" class="note">${data[kind].length ? 'ไม่พบที่ค้นหา' : `ยังไม่มี${c.label} กด “+ เพิ่ม${c.label}” หรือพิมพ์ลงในชีต ${kind==='events'?'Events':'Bosses'}`}</td></tr>`;
+      <td class="act"><button class="ibtn" data-act="edit" aria-label="Edit ${esc(x.name)}">✎</button><button class="ibtn del" data-act="del" aria-label="Delete ${esc(x.name)}">🗑</button></td>
+    </tr>`).join('') : `<tr><td colspan="3" class="note">${data[kind].length ? 'No matches' : `No ${c.label.toLowerCase()}s yet — hit “+ Add ${c.label}” or type them into the ${kind==='events'?'Events':'Bosses'} sheet`}</td></tr>`;
 }
 Object.keys(CAT).forEach(kind => {
   const c = CAT[kind];
@@ -1595,9 +1681,9 @@ Object.keys(CAT).forEach(kind => {
     const b = e.target.closest('button'); if (!b) return;
     const it = data[kind].find(x => x.name === b.closest('tr').dataset.n);
     if (b.dataset.act === 'edit') catalogForm(kind, it);
-    if (b.dataset.act === 'del') confirmBox(`ลบ${c.label}`, `ลบ <b>${esc(it.name)}</b> ออกจากรายการ? (ประวัติเดิมไม่หาย)`, 'ลบ', async () => {
+    if (b.dataset.act === 'del') confirmBox(`Delete ${c.label.toLowerCase()}`, `Delete <b>${esc(it.name)}</b> from the list? (past runs are kept)`, 'Delete', async () => {
       const j = await apiPost({ action:'deleteCatalog', kind, name:it.name });
-      data[kind] = j.list; saveData(); renderAll(); toast(`ลบ ${it.name} แล้ว`, 'ok');
+      data[kind] = j.list; saveData(); renderAll(); toast(`${it.name} deleted`, 'ok');
     });
   });
 });
@@ -1605,15 +1691,15 @@ document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => catalogFo
 function catalogForm(kind, it){
   const c = CAT[kind];
   openModal({
-    title: it ? `แก้ไข${c.label} · ${it.name}` : `เพิ่ม${c.label}`,
-    body: `<label class="field"><span>ชื่อ${c.label}</span><input type="text" id="c-name" value="${esc(it?.name)}"></label>
-      <label class="field"><span>แต้มที่ได้</span><input type="number" id="c-pts" value="${it ? it.points : 1}" min="0" step="0.5"></label>`,
+    title: it ? `Edit ${c.label.toLowerCase()} · ${it.name}` : `Add ${c.label.toLowerCase()}`,
+    body: `<label class="field"><span>${c.label} name</span><input type="text" id="c-name" value="${esc(it?.name)}"></label>
+      <label class="field"><span>Points</span><input type="number" id="c-pts" value="${it ? it.points : 1}" min="0" step="0.5"></label>`,
     onOk: async () => {
       const name = $('c-name').value.trim();
-      if (!name) throw new Error(`กรุณาใส่ชื่อ${c.label}`);
+      if (!name) throw new Error(`Please enter a ${c.label.toLowerCase()} name`);
       const j = await apiPost({ action:'saveCatalog', kind, original:it?.name || '', name, points:Number($('c-pts').value) || 0 });
       data[kind] = j.list; saveData(); renderAll();
-      toast(it ? `แก้ไข ${name} แล้ว` : `เพิ่ม ${name} แล้ว`, 'ok');
+      toast(it ? `${name} updated` : `${name} added`, 'ok');
     }
   });
 }
@@ -1622,7 +1708,7 @@ function catalogForm(kind, it){
 function fillSettings(){
   $('sUrl').value = settings.apiUrl; $('sKey').value = settings.key; $('sRecorder').value = settings.recorder;
   $('sLang').value = settings.lang; $('sEngine').value = settings.engine || 'hybrid'; $('sTh').value = settings.threshold; $('sThVal').textContent = settings.threshold + '%';
-  $('welcome').textContent = settings.recorder ? `ยินดีต้อนรับ, ${settings.recorder}` : 'บันทึกการลงบอสของแคลน';
+  $('welcome').textContent = settings.recorder ? `Welcome, ${settings.recorder}` : 'Clan boss attendance tracker';
 }
 $('sTh').oninput = e => { settings.threshold = +e.target.value; $('sThVal').textContent = settings.threshold + '%'; saveSettingsLS(); };
 $('sLang').onchange = e => { settings.lang = e.target.value; saveSettingsLS(); };
@@ -1631,11 +1717,11 @@ function readSettingsForm(){
   settings.apiUrl = $('sUrl').value.trim(); settings.key = $('sKey').value; settings.recorder = $('sRecorder').value.trim();
   saveSettingsLS(); fillSettings();
 }
-$('btnSaveSettings').onclick = () => { readSettingsForm(); toast('บันทึกการตั้งค่าแล้ว', 'ok'); if (settings.apiUrl) loadAll(true); };
+$('btnSaveSettings').onclick = () => { readSettingsForm(); toast('Settings saved', 'ok'); if (settings.apiUrl) loadAll(true); };
 $('btnTest').onclick = e => busy(e.currentTarget, async () => {
   readSettingsForm();
   try{ checkUrl(settings.apiUrl); }catch(err){ toast(err.message, 'bad'); return; }
-  if (await loadAll(true)) toast(`เชื่อมต่อสำเร็จ · สมาชิก ${data.members.length} · บอส ${data.bosses.length} · กิจกรรม ${data.events.length}`, 'ok');
+  if (await loadAll(true)) toast(`Connected · ${data.members.length} members · ${data.bosses.length} bosses · ${data.events.length} events`, 'ok');
   else loadAll(false);
 });
 
