@@ -486,6 +486,13 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
       </div>
       <div class="panel">
         <h2>การอ่านภาพ (OCR)</h2>
+        <label class="field"><span>ระบบอ่านภาพ</span>
+          <select id="sEngine">
+            <option value="google">โหมดแม่นยำ · Google OCR (ฟรี ผ่าน Apps Script)</option>
+            <option value="tesseract">โหมดเร็ว · Tesseract (อ่านในเครื่อง)</option>
+          </select>
+        </label>
+        <p class="note" style="margin:-4px 0 12px">โหมดแม่นยำต้องเปิด Drive API ใน Apps Script ก่อน ถ้าใช้ไม่ได้ โปรแกรมจะสลับไปโหมดเร็วให้อัตโนมัติ</p>
         <label class="field"><span>ภาษาของชื่อตัวละคร</span>
           <select id="sLang">
             <option value="eng">อังกฤษอย่างเดียว (เร็วที่สุด)</option>
@@ -528,9 +535,9 @@ const LS = {
 /* ===== ตั้งค่าเริ่มต้นสำหรับเว็บที่ขึ้น Render =====
    ใส่ Web app URL ของ Apps Script ไว้ตรงนี้ คนที่เปิดเว็บจะได้ไม่ต้องวางเอง
    (ห้ามใส่รหัสลับในไฟล์นี้ ให้แต่ละคนกรอกในหน้า "ตั้งค่า" เอง) */
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycb.../exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwJKnhYpMNlxYfS9NuHGLumwhh8aa1wxpFTneL6VDFDjEmviotErMEJvxItwRE3UbCy8A/exec';
 
-const settings = Object.assign({ apiUrl:'', key:'', recorder:'', lang:'eng', threshold:75, crop:null }, LS.get('bt.settings', {}));
+const settings = Object.assign({ apiUrl:'', key:'', recorder:'', lang:'eng', threshold:75, crop:null, engine:'google' }, LS.get('bt.settings', {}));
 if (!settings.apiUrl && DEFAULT_API_URL) settings.apiUrl = DEFAULT_API_URL;
 const saveSettingsLS = () => LS.set('bt.settings', settings);
 
@@ -902,8 +909,28 @@ function runOCR(){
   ocrBusy = ocrBusy.then(doOCR).catch(e => { setStatus(''); toast('อ่านภาพไม่สำเร็จ: ' + (e.message||e), 'bad'); });
   return ocrBusy;
 }
+async function googleOCR(){
+  // ส่งภาพ (ครอบ + กลับสีแล้ว) ให้ Apps Script อ่านด้วย Google OCR
+  const r0 = settings.crop || { w:1 };
+  const sw = r0.w * state.image.width;
+  const k = Math.min(2.4, Math.max(1, 1800 / sw));
+  const png = preprocess(state.image, k).toDataURL('image/png');
+  const lang = { 'eng':'en', 'eng+tha':'th', 'eng+kor':'ko' }[settings.lang] || 'en';
+  setStatus('กำลังส่งภาพให้ Google OCR อ่าน…', 0.3);
+  const j = await apiPost({ action:'ocr', image:png.split(',')[1], mime:'image/png', lang });
+  setStatus('กำลังจับคู่ชื่อ…', 0.9);
+  return parseSmart(j.text || '');
+}
 async function doOCR(){
   if (!state.image) return;
+  if ((settings.engine || 'google') === 'google' && settings.apiUrl){
+    try{
+      const found = await googleOCR();
+      return finishOCR(found, 'Google OCR');
+    }catch(e){
+      toast('Google OCR ใช้ไม่ได้: ' + e.message + ' · สลับไปโหมดเร็วรอบนี้', 'bad');
+    }
+  }
   if (typeof Tesseract === 'undefined') throw new Error('โหลด Tesseract.js ไม่ได้ ตรวจสอบอินเทอร์เน็ต');
   const w = await getWorker();
   setStatus('กำลังอ่านภาพ…', 0.1);
@@ -916,8 +943,11 @@ async function doOCR(){
   setStatus('กำลังอ่านภาพ (รอบ 2)…', 0.6);
   const { data:res2 } = await w.recognize(preprocess(state.image, k2));
   const found = mergeFound(parseText(res1.text), parseText(res2.text));
+  finishOCR(found, 'Tesseract');
+}
+function finishOCR(found, engine){
   const r = mergeResults(found);
-  setStatus(`อ่านได้ ${found.length} รายการ · ติ๊กสมาชิกให้แล้ว ${r.matched} คน` + (r.unmatched ? ` · ไม่อยู่ในรายชื่อ ${r.unmatched} ชื่อ` : ''), null);
+  setStatus(`[${engine}] อ่านได้ ${found.length} รายการ · ติ๊กสมาชิกให้แล้ว ${r.matched} คน` + (r.unmatched ? ` · ไม่อยู่ในรายชื่อ ${r.unmatched} ชื่อ` : ''), null);
   $('search').value = ''; $('noteFilter').value = '';
   renderMembers(); renderUnmatched();
   $('mlist').scrollTop = 0;
@@ -955,6 +985,21 @@ function similarity(a,b){
   if (Math.min(x.length,y.length) <= 3) return (x.length === y.length && d <= 0.25) ? 0.9 : 0;
   return 1 - d/Math.max(x.length,y.length);
 }
+function parseSmart(text){
+  const found = parseText(text);
+  if (!found.length || found.some(f => f.contribution)) return found;
+  // Google OCR บางครั้งแยกคอลัมน์ Contribution ออกเป็นบรรทัดของตัวเอง -> จับคู่ตามลำดับ
+  const nums = [];
+  for (const raw of text.split('\n')){
+    const t = raw.trim();
+    if (/^\d{1,3}(?:[,.]\d{3})*$/.test(t)){
+      const n = parseInt(t.replace(/[,.]/g,''), 10);
+      if (n < 50000000) nums.push(n);
+    }
+  }
+  if (nums.length === found.length) found.forEach((f, i) => f.contribution = nums[i]);
+  return found;
+}
 function mergeFound(a, b){
   const map = new Map();
   for (const f of [...a, ...b]){
@@ -966,13 +1011,26 @@ function mergeFound(a, b){
   const out = [...map.values()];
   return out.filter(f => f.member || !out.some(g => g.member && g.contribution && g.contribution === f.contribution));
 }
+// รายชื่อสำหรับจับคู่: ชื่อจริง + Alias (ชื่อที่ OCR มักอ่านผิด)
+function activePool(){
+  const out = [];
+  data.members.filter(m => m.status !== 'Inactive').forEach(m => {
+    out.push({ key:m.name, name:m.name });
+    String(m.alias || '').split(',').map(x => x.trim()).filter(Boolean).forEach(a => out.push({ key:a, name:m.name, alias:true }));
+  });
+  return out;
+}
 function bestMember(token, pool){
   let best=null, score=0;
-  for (const m of pool){ const s = similarity(token, m); if (s > score){ score = s; best = m; } }
+  for (const e of pool){
+    // Alias ต้องตรงเป๊ะ (ไม่สนตัวพิมพ์เล็กใหญ่) เพื่อกันจับผิดคน
+    const s = e.alias ? (lc(token) === lc(e.key) ? 1 : 0) : similarity(token, e.key);
+    if (s > score){ score = s; best = e.name; }
+  }
   return score >= settings.threshold/100 ? { name:best, score } : null;
 }
 function parseText(text){
-  const pool = activeNames(), out = [];
+  const pool = activePool(), out = [];
   for (const raw of text.split('\n')){
     const line = raw.trim(); if (!line) continue;
     const nums = [...line.matchAll(NUM_RE)].map(m => parseInt(m[1].replace(/[,.]/g,''),10));
@@ -1018,6 +1076,7 @@ function renderUnmatched(){
       <input type="text" value="${esc(u.raw)}" aria-label="แก้ชื่อ">
       <span class="num">${fmt(u.contribution)}</span>
       <button class="btn small" data-act="pick" title="เลือกเฉพาะรอบนี้">เลือก</button>
+      <button class="btn small" data-act="link" title="ชื่อนี้คือสมาชิกที่ OCR อ่านผิด: ผูกเป็น Alias ครั้งหน้าจะติ๊กให้อัตโนมัติ">🔗 ผูก</button>
       <button class="btn small" data-act="add" title="เพิ่มเป็นสมาชิกถาวร">+ สมาชิก</button>
       <button class="btn small ghost" data-act="drop" aria-label="ไม่ใช้ชื่อนี้">✕</button>
     </div>`).join('');
@@ -1027,6 +1086,7 @@ $('umList').addEventListener('click', async e => {
   const row = btn.closest('.um-item'), i = +row.dataset.i, u = state.unmatched[i];
   const name = row.querySelector('input').value.trim();
   if (btn.dataset.act !== 'drop' && !name) return;
+  if (btn.dataset.act === 'link') return linkAlias(u, i, row.querySelector('input').value.trim());
   if (btn.dataset.act === 'add'){
     try{
       const j = await apiPost({ action:'addMembers', names:[name] });
@@ -1041,6 +1101,33 @@ $('umList').addEventListener('click', async e => {
   state.unmatched.splice(i,1);
   renderUnmatched(); renderMembers();
 });
+
+function linkAlias(u, i, raw){
+  const opts = data.members.filter(m => m.status !== 'Inactive').map(m => m.name).sort(byName);
+  // เดาคนที่ใกล้เคียงที่สุดให้ก่อน
+  let guess = '', best = 0;
+  opts.forEach(n => { const sc = similarity(raw, n); if (sc > best){ best = sc; guess = n; } });
+  if (best < 0.5) guess = '';
+  openModal({
+    title: 'ผูกชื่อที่อ่านผิดกับสมาชิก',
+    okText: 'ผูกและเลือก',
+    body: `<p class="note" style="margin:0">OCR อ่านได้ว่า <b style="color:var(--gold)">${esc(raw)}</b> — เลือกสมาชิกที่ถูกต้อง<br>
+        ระบบจะจำ "${esc(raw)}" เป็น Alias ครั้งหน้าสแกนเจอจะติ๊กให้อัตโนมัติ</p>
+      <label class="field"><span>สมาชิก</span>
+        <input type="text" id="la-name" list="la-list" value="${esc(guess)}" placeholder="พิมพ์ชื่อสมาชิก…">
+        <datalist id="la-list">${opts.map(n => `<option value="${esc(n)}">`).join('')}</datalist></label>`,
+    onOk: async () => {
+      const name = data.members.find(m => lc(m.name) === lc($('la-name').value.trim()))?.name;
+      if (!name) throw new Error('ไม่พบสมาชิกชื่อนี้ เลือกจากรายการ');
+      const j = await apiPost({ action:'addAlias', name, alias:raw });
+      data.members = j.members; saveData(); renderAdmin();
+      state.selected.set(name, { contribution:u.contribution, source:'scan' });
+      state.unmatched.splice(i, 1);
+      renderUnmatched(); renderMembers();
+      toast(`ผูก "${raw}" → ${name} แล้ว`, 'ok');
+    }
+  });
+}
 
 /* ================= RECORD: save ================= */
 $('btnSave').onclick = () => saveRecord();
@@ -1369,7 +1456,7 @@ function renderMemAdmin(){
   state.memPage = Math.min(state.memPage, pages);
   const slice = list.slice((state.memPage-1)*PAGE, state.memPage*PAGE);
   $('memBody').innerHTML = slice.length ? slice.map(m => `<tr class="${m.status==='Inactive'?'dim':''}" data-n="${esc(m.name)}">
-      <td><b>${esc(m.name)}</b></td>
+      <td><b>${esc(m.name)}</b>${m.alias ? `<div class="note" style="font-size:12px">alias: ${esc(m.alias)}</div>` : ''}</td>
       <td><span class="pill ${m.status==='Inactive'?'inactive':'active'}">${m.status==='Inactive'?'○ Inactive':'● Active'}</span></td>
       <td>${thDate(m.joined)}</td>
       <td>${noteTag((m.note||'').trim()) || '<span class="note">-</span>'}</td>
@@ -1402,12 +1489,14 @@ function memberForm(m){
       <p class="note" style="margin:-4px 0 0">สมาชิก Inactive ยังอยู่ในประวัติและสรุปคะแนน แต่จะไม่ขึ้นในรายชื่อตอนบันทึกบอสใหม่ และไม่ถูกติ๊กจากการสแกน</p>
       <label class="field"><span>เริ่มเป็นสมาชิกตั้งแต่</span><input type="date" id="f-joined" value="${esc(m?.joined || today())}"></label>
       <label class="field"><span>Note (เช่น ชื่อแคลน/กลุ่ม)</span><input type="text" id="f-note" value="${esc(m?.note)}" placeholder="เช่น DREADTIDE / RIPTIDE" list="f-notes">
-        <datalist id="f-notes">${[...new Set(data.members.map(x => (x.note||'').trim()).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('')}</datalist></label>`,
+        <datalist id="f-notes">${[...new Set(data.members.map(x => (x.note||'').trim()).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join('')}</datalist></label>
+      <label class="field"><span>Alias · ชื่อที่ OCR มักอ่านผิด (คั่นด้วย ,)</span><input type="text" id="f-alias" value="${esc(m?.alias)}" placeholder="เช่น Jee, gee"></label>`,
     onOk: async () => {
       const name = $('f-name').value.trim();
       if (!name) throw new Error('กรุณาใส่ชื่อ');
       const j = await apiPost({ action:'saveMember', original:m?.name || '', name,
-        status: $('f-status').checked ? 'Active' : 'Inactive', joined:$('f-joined').value, note:$('f-note').value.trim() });
+        status: $('f-status').checked ? 'Active' : 'Inactive', joined:$('f-joined').value, note:$('f-note').value.trim(),
+        alias:$('f-alias').value.trim() });
       data.members = j.members; saveData(); renderAll();
       toast(m ? `แก้ไข ${name} แล้ว` : `เพิ่ม ${name} แล้ว`, 'ok');
     }
@@ -1471,11 +1560,12 @@ function catalogForm(kind, it){
 /* ================= SETTINGS ================= */
 function fillSettings(){
   $('sUrl').value = settings.apiUrl; $('sKey').value = settings.key; $('sRecorder').value = settings.recorder;
-  $('sLang').value = settings.lang; $('sTh').value = settings.threshold; $('sThVal').textContent = settings.threshold + '%';
+  $('sLang').value = settings.lang; $('sEngine').value = settings.engine || 'google'; $('sTh').value = settings.threshold; $('sThVal').textContent = settings.threshold + '%';
   $('welcome').textContent = settings.recorder ? `ยินดีต้อนรับ, ${settings.recorder}` : 'บันทึกการลงบอสของแคลน';
 }
 $('sTh').oninput = e => { settings.threshold = +e.target.value; $('sThVal').textContent = settings.threshold + '%'; saveSettingsLS(); };
 $('sLang').onchange = e => { settings.lang = e.target.value; saveSettingsLS(); };
+$('sEngine').onchange = e => { settings.engine = e.target.value; saveSettingsLS(); };
 function readSettingsForm(){
   settings.apiUrl = $('sUrl').value.trim(); settings.key = $('sKey').value; settings.recorder = $('sRecorder').value.trim();
   saveSettingsLS(); fillSettings();
