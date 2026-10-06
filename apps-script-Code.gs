@@ -25,7 +25,7 @@ const SH = {
 };
 
 const HEAD = {
-  members: ['Name', 'Status', 'Joined Date', 'Note'],
+  members: ['Name', 'Status', 'Joined Date', 'Note', 'Alias'],
   bosses: ['Boss Name', 'Points'],
   events: ['Event Name', 'Points'],
   att: ['Session ID', 'Recorded At', 'Time', 'Boss / Event', 'Points',
@@ -56,6 +56,7 @@ function setup() {
     const n = m.getLastRow() - 1;
     if (n > 0) m.getRange(2, 2, n, 1).setValue('Active');
   }
+  if (String(m.getRange(1, 5).getValue()).trim() !== 'Alias') writeHead_(m, HEAD.members);
   m.getRange('C:C').setNumberFormat('yyyy-mm-dd');
   m.getRange('B2:B').setDataValidation(
     SpreadsheetApp.newDataValidation().requireValueInList(['Active', 'Inactive'], true).build());
@@ -133,6 +134,12 @@ function doPost(e) {
   catch (err) { return json_({ ok: false, error: 'ข้อมูลที่ส่งมาไม่ใช่ JSON' }); }
   if (!checkKey_(body.key)) return json_({ ok: false, error: 'รหัสลับไม่ถูกต้อง' });
 
+  // OCR ไม่ต้องล็อก (ให้หลายคนสแกนพร้อมกันได้)
+  if (body.action === 'ocr') {
+    try { return json_(googleOcr_(body)); }
+    catch (err) { return json_({ ok: false, error: String(err.message || err) }); }
+  }
+
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
@@ -143,6 +150,7 @@ function doPost(e) {
       case 'deleteSession':     return json_(deleteSession_(body));
       case 'saveMember':        return json_(saveMember_(body));
       case 'deleteMember':      return json_(deleteMember_(body));
+      case 'addAlias':          return json_(addAlias_(body));
       case 'addMembers':        return json_(addMembers_(body.names || []));
       case 'saveCatalog':       return json_(saveCatalog_(body));
       case 'deleteCatalog':     return json_(deleteCatalog_(body));
@@ -165,7 +173,8 @@ function getMembers_() {
         name: String(r.v[0]).trim(),
         status: String(r.v[1]).trim() === 'Inactive' ? 'Inactive' : 'Active',
         joined: fmtDate_(r.v[2]),
-        note: String(r.v[3] || '')
+        note: String(r.v[3] || ''),
+        alias: String(r.v[4] || '')
       };
     })
     .sort(function (a, b) { return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1; });
@@ -176,7 +185,7 @@ function saveMember_(b) {
   if (!name) throw new Error('กรุณาใส่ชื่อสมาชิก');
   const status = b.status === 'Inactive' ? 'Inactive' : 'Active';
   const joined = parseDate_(b.joined) || new Date();
-  const values = [[name, status, joined, String(b.note || '')]];
+  const values = [[name, status, joined, String(b.note || ''), normAlias_(b.alias)]];
   const sheet = sheet_('members');
   const dup = findRow_('members', name);
 
@@ -184,11 +193,11 @@ function saveMember_(b) {
     const row = findRow_('members', b.original);
     if (!row) throw new Error('ไม่พบสมาชิก ' + b.original);
     if (dup && dup.row !== row.row) throw new Error('มีชื่อ ' + name + ' อยู่แล้ว');
-    sheet.getRange(row.row, 1, 1, 4).setValues(values);
+    sheet.getRange(row.row, 1, 1, 5).setValues(values);
     if (String(b.original).trim() !== name) renameInAttendance_(b.original, name);
   } else {
     if (dup) throw new Error('มีชื่อ ' + name + ' อยู่แล้ว');
-    sheet.getRange(sheet.getLastRow() + 1, 1, 1, 4).setValues(values);
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, 5).setValues(values);
   }
   return { ok: true, members: getMembers_() };
 }
@@ -215,6 +224,23 @@ function deleteMember_(b) {
   return { ok: true, members: getMembers_() };
 }
 
+/** เพิ่มชื่อที่ OCR อ่านผิด เป็น Alias ของสมาชิก (สอนระบบ) */
+function addAlias_(b) {
+  const row = findRow_('members', b.name);
+  if (!row) throw new Error('ไม่พบสมาชิก ' + b.name);
+  const cur = normAlias_(row.v[4]).split(', ').filter(String);
+  const add = String(b.alias || '').trim();
+  if (!add) throw new Error('ไม่มีชื่อที่จะเพิ่ม');
+  if (cur.map(function (x) { return x.toLowerCase(); }).indexOf(add.toLowerCase()) === -1) cur.push(add);
+  sheet_('members').getRange(row.row, 5).setValue(cur.join(', '));
+  return { ok: true, members: getMembers_() };
+}
+
+function normAlias_(v) {
+  return String(v || '').split(/[,\n]/).map(function (x) { return x.trim(); })
+    .filter(String).join(', ');
+}
+
 function addMembers_(names) {
   const sheet = sheet_('members');
   const existing = getMembers_().map(function (m) { return m.name.toLowerCase(); });
@@ -224,10 +250,10 @@ function addMembers_(names) {
     n = String(n || '').trim();
     if (n && existing.indexOf(n.toLowerCase()) === -1) {
       existing.push(n.toLowerCase());
-      toAdd.push([n, 'Active', today, '']);
+      toAdd.push([n, 'Active', today, '', '']);
     }
   });
-  if (toAdd.length) sheet.getRange(sheet.getLastRow() + 1, 1, toAdd.length, 4).setValues(toAdd);
+  if (toAdd.length) sheet.getRange(sheet.getLastRow() + 1, 1, toAdd.length, 5).setValues(toAdd);
   return { ok: true, added: toAdd.length, members: getMembers_() };
 }
 
@@ -475,6 +501,45 @@ function getRecap_(type, from, to) {
     .sort(function (a, b) { return a.time < b.time ? 1 : -1; }).slice(0, 300);
 
   return { recap: recap, days: dayList, sessions: sessionList };
+}
+
+/* ======================= GOOGLE OCR ======================= */
+/**
+ * อ่านตัวหนังสือจากภาพด้วย OCR ของ Google (ผ่าน Google Drive) ใช้ฟรี
+ * ต้องเปิดบริการ "Drive API" ในหน้า Apps Script ก่อน (เมนูซ้าย: บริการ / Services > + > Drive API)
+ */
+function googleOcr_(b) {
+  if (typeof Drive === 'undefined') {
+    throw new Error('ยังไม่ได้เปิด Drive API ใน Apps Script (บริการ > + > Drive API > เพิ่ม) แล้ว Deploy เวอร์ชันใหม่');
+  }
+  const b64 = String(b.image || '').replace(/^data:image\/\w+;base64,/, '');
+  if (!b64) throw new Error('ไม่มีภาพที่จะอ่าน');
+  const blob = Utilities.newBlob(Utilities.base64Decode(b64), b.mime || 'image/png', 'bt-ocr.png');
+  const lang = String(b.lang || 'en');
+  let id = null;
+  try {
+    if (Drive.Files.create) {          // Drive API v3
+      const f = Drive.Files.create({ name: 'bt-ocr-temp', mimeType: 'application/vnd.google-apps.document' },
+                                   blob, { ocrLanguage: lang });
+      id = f.id;
+    } else {                           // Drive API v2
+      const f = Drive.Files.insert({ title: 'bt-ocr-temp', mimeType: blob.getContentType() },
+                                   blob, { ocr: true, ocrLanguage: lang });
+      id = f.id;
+    }
+    const text = DocumentApp.openById(id).getBody().getText();
+    return { ok: true, text: text };
+  } finally {
+    if (id) { try { Drive.Files.remove(id); } catch (e) { try { DriveApp.getFileById(id).setTrashed(true); } catch (e2) {} } }
+  }
+}
+
+/** ทดสอบ OCR จากหน้า Apps Script: เลือกฟังก์ชันนี้แล้วกด "เรียกใช้" เพื่อให้สิทธิ์ Drive/Docs */
+function testGoogleOcr() {
+  const png = Utilities.newBlob(Utilities.base64Decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='), 'image/png');
+  const r = googleOcr_({ image: Utilities.base64Encode(png.getBytes()) });
+  Logger.log('Google OCR พร้อมใช้งาน: ' + JSON.stringify(r));
 }
 
 /* ======================= HELPERS ======================= */
