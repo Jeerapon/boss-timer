@@ -535,7 +535,7 @@ const LS = {
 /* ===== ตั้งค่าเริ่มต้นสำหรับเว็บที่ขึ้น Render =====
    ใส่ Web app URL ของ Apps Script ไว้ตรงนี้ คนที่เปิดเว็บจะได้ไม่ต้องวางเอง
    (ห้ามใส่รหัสลับในไฟล์นี้ ให้แต่ละคนกรอกในหน้า "ตั้งค่า" เอง) */
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwJKnhYpMNlxYfS9NuHGLumwhh8aa1wxpFTneL6VDFDjEmviotErMEJvxItwRE3UbCy8A/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwtlaQLhdVlaA4d2nYq-L2QUEm6EjEiw5pI0Kth0-gUnTGE2fgdJjnGvRvvYmksJhCXAA/exec';
 
 const settings = Object.assign({ apiUrl:'', key:'', recorder:'', lang:'eng', threshold:75, crop:null, engine:'google' }, LS.get('bt.settings', {}));
 if (!settings.apiUrl && DEFAULT_API_URL) settings.apiUrl = DEFAULT_API_URL;
