@@ -488,11 +488,12 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
         <h2>การอ่านภาพ (OCR)</h2>
         <label class="field"><span>ระบบอ่านภาพ</span>
           <select id="sEngine">
-            <option value="google">โหมดแม่นยำ · Google OCR (ฟรี ผ่าน Apps Script)</option>
+            <option value="hybrid">โหมดผสม · เห็นผลทันที + Google ตรวจซ้ำ (แนะนำ)</option>
+            <option value="google">โหมดแม่นยำ · รอ Google OCR อย่างเดียว</option>
             <option value="tesseract">โหมดเร็ว · Tesseract (อ่านในเครื่อง)</option>
           </select>
         </label>
-        <p class="note" style="margin:-4px 0 12px">โหมดแม่นยำต้องเปิด Drive API ใน Apps Script ก่อน ถ้าใช้ไม่ได้ โปรแกรมจะสลับไปโหมดเร็วให้อัตโนมัติ</p>
+        <p class="note" style="margin:-4px 0 12px">โหมดผสม/แม่นยำ ใช้ Google OCR ผ่าน Apps Script (ต้องเปิด Drive API) ถ้า Google ใช้ไม่ได้ โปรแกรมจะใช้ผลจากโหมดเร็วให้อัตโนมัติ</p>
         <label class="field"><span>ภาษาของชื่อตัวละคร</span>
           <select id="sLang">
             <option value="eng">อังกฤษอย่างเดียว (เร็วที่สุด)</option>
@@ -537,9 +538,11 @@ const LS = {
    (ห้ามใส่รหัสลับในไฟล์นี้ ให้แต่ละคนกรอกในหน้า "ตั้งค่า" เอง) */
 const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwtlaQLhdVlaA4d2nYq-L2QUEm6EjEiw5pI0Kth0-gUnTGE2fgdJjnGvRvvYmksJhCXAA/exec';
 
-const settings = Object.assign({ apiUrl:'', key:'', recorder:'', lang:'eng', threshold:75, crop:null, engine:'google' }, LS.get('bt.settings', {}));
+const settings = Object.assign({ apiUrl:'', key:'', recorder:'', lang:'eng', threshold:75, crop:null, engine:'hybrid' }, LS.get('bt.settings', {}));
 if (!settings.apiUrl && DEFAULT_API_URL) settings.apiUrl = DEFAULT_API_URL;
 const saveSettingsLS = () => LS.set('bt.settings', settings);
+// ย้ายผู้ที่เคยตั้งโหมด Google ไว้ ไปใช้โหมดผสม (เร็วกว่า แม่นเท่าเดิม) ครั้งเดียว
+if (!settings.engineV2){ if (settings.engine === 'google') settings.engine = 'hybrid'; settings.engineV2 = 1; saveSettingsLS(); }
 
 const data = Object.assign({ members:[], bosses:[], events:[] }, LS.get('bt.data', {}));
 // แปลงแคชจากเวอร์ชัน 1 (รายชื่อเป็น string)
@@ -551,7 +554,7 @@ const state = {
   type: 'boss',
   selected: new Map(), unmatched: [],
   image: null, stream: null, video: null, worker: null, workerLang: null,
-  onlySel: false, sessionId: newSession(), fresh: new Set(),
+  onlySel: false, sessionId: newSession(), fresh: new Set(), ocrToken: 0, userUnchecked: new Set(),
   histFilter: 'all', history: [],
   recapFilter: 'all', recap: [],
   memFilter: 'all', memPage: 1
@@ -770,7 +773,7 @@ $('mlist').addEventListener('change', e => {
   const row = e.target.closest('.m'); if (!row) return;
   const n = row.dataset.n;
   if (e.target.checked) state.selected.set(n, state.selected.get(n) || { contribution:0, source:'manual' });
-  else state.selected.delete(n);
+  else { state.selected.delete(n); state.userUnchecked?.add(n); }
   renderMembers();
 });
 $('search').addEventListener('input', renderMembers);
@@ -909,44 +912,101 @@ function runOCR(){
   ocrBusy = ocrBusy.then(doOCR).catch(e => { setStatus(''); toast('อ่านภาพไม่สำเร็จ: ' + (e.message||e), 'bad'); });
   return ocrBusy;
 }
-async function googleOCR(){
-  // ส่งภาพ (ครอบ + กลับสีแล้ว) ให้ Apps Script อ่านด้วย Google OCR
+async function googleOCR(silent){
+  // ส่งภาพ (ครอบ + กลับสี) ให้ Apps Script อ่านด้วย Google OCR
+  // ส่งเป็น JPEG ขนาดพอดี (ไม่ขยายเกินจำเป็น) ไฟล์เล็กลงหลายเท่า = ส่งเร็วขึ้น
   const r0 = settings.crop || { w:1 };
   const sw = r0.w * state.image.width;
-  const k = Math.min(2.4, Math.max(1, 1800 / sw));
-  const png = preprocess(state.image, k).toDataURL('image/png');
+  const k = sw < 700 ? 2 : sw < 1100 ? 1.4 : Math.min(1, 1600 / sw);
+  const jpg = preprocess(state.image, k).toDataURL('image/jpeg', 0.85);
   const lang = { 'eng':'en', 'eng+tha':'th', 'eng+kor':'ko' }[settings.lang] || 'en';
-  setStatus('กำลังส่งภาพให้ Google OCR อ่าน…', 0.3);
-  const j = await apiPost({ action:'ocr', image:png.split(',')[1], mime:'image/png', lang });
-  setStatus('กำลังจับคู่ชื่อ…', 0.9);
+  if (!silent) setStatus('กำลังส่งภาพให้ Google OCR อ่าน…', 0.3);
+  const j = await apiPost({ action:'ocr', image:jpg.split(',')[1], mime:'image/jpeg', lang });
   return parseSmart(j.text || '');
 }
-async function doOCR(){
-  if (!state.image) return;
-  if ((settings.engine || 'google') === 'google' && settings.apiUrl){
-    try{
-      const found = await googleOCR();
-      return finishOCR(found, 'Google OCR');
-    }catch(e){
-      toast('Google OCR ใช้ไม่ได้: ' + e.message + ' · สลับไปโหมดเร็วรอบนี้', 'bad');
-    }
-  }
+async function tesseractOCR(passes){
   if (typeof Tesseract === 'undefined') throw new Error('โหลด Tesseract.js ไม่ได้ ตรวจสอบอินเทอร์เน็ต');
   const w = await getWorker();
   setStatus('กำลังอ่านภาพ…', 0.1);
-  // อ่าน 2 รอบด้วยขนาดภาพต่างกัน แล้วรวมผล (ลดโอกาสอ่านชื่อตกหล่น)
   const r0 = settings.crop || { w:1 };
   const sw = r0.w * state.image.width;
   const k1 = sw > 2400 ? 1 : sw > 1300 ? 1.6 : 2.4;
-  const k2 = k1 === 2.4 ? 1.6 : k1 === 1.6 ? 2.4 : 1.6;
   const { data:res1 } = await w.recognize(preprocess(state.image, k1));
+  if (passes < 2) return parseText(res1.text);
+  // อ่านรอบ 2 ด้วยขนาดภาพต่างกัน แล้วรวมผล (ลดโอกาสอ่านชื่อตกหล่น)
+  const k2 = k1 === 2.4 ? 1.6 : k1 === 1.6 ? 2.4 : 1.6;
   setStatus('กำลังอ่านภาพ (รอบ 2)…', 0.6);
   const { data:res2 } = await w.recognize(preprocess(state.image, k2));
-  const found = mergeFound(parseText(res1.text), parseText(res2.text));
-  finishOCR(found, 'Tesseract');
+  return mergeFound(parseText(res1.text), parseText(res2.text));
+}
+
+async function doOCR(){
+  if (!state.image) return;
+  const engine = settings.engine || 'hybrid';
+  const token = ++state.ocrToken;
+  state.userUnchecked = new Set();
+  const canGoogle = engine !== 'tesseract' && !!settings.apiUrl;
+
+  // โหมดแม่นยำ: รอ Google อย่างเดียว
+  if (engine === 'google' && canGoogle){
+    try { return finishOCR(await googleOCR(), 'Google OCR'); }
+    catch (e) { toast('Google OCR ใช้ไม่ได้: ' + e.message + ' · สลับไปโหมดเร็วรอบนี้', 'bad'); }
+  }
+
+  // โหมดผสม: ส่งให้ Google ทันที (ทำงานคู่ขนาน) + Tesseract อ่านเร็ว ๆ ให้เห็นผลก่อน
+  if (engine === 'hybrid' && canGoogle){
+    const t0 = performance.now();
+    const gp = googleOCR(true).then(f => ({ f }), e => ({ e }));
+    let quickOk = false;
+    try {
+      finishOCR(await tesseractOCR(1), 'ด่วน');
+      quickOk = true;
+      setStatus($('ocrStatus').textContent + ' · กำลังตรวจซ้ำด้วย Google…', 0.95);
+    } catch (e) { setStatus('กำลังรอ Google OCR…', 0.5); }
+    // ไม่ต้องรอ Google ในคิว: ให้สแกนภาพถัดไปได้ทันที
+    gp.then(g => {
+      if (token !== state.ocrToken) return;           // มีการสแกนใหม่แล้ว ทิ้งผลเก่า
+      if (g.e){
+        toast('Google OCR ใช้ไม่ได้: ' + g.e.message + (quickOk ? ' · ใช้ผลจากโหมดเร็ว' : ''), 'bad');
+        setStatus($('ocrStatus').textContent.replace(' · กำลังตรวจซ้ำด้วย Google…', ''), null);
+        if (!quickOk) runOCRTesseractFull();
+        return;
+      }
+      refineWithGoogle(g.f, ((performance.now() - t0) / 1000).toFixed(1));
+    });
+    return;
+  }
+
+  finishOCR(await tesseractOCR(2), 'Tesseract');
+}
+function runOCRTesseractFull(){
+  ocrBusy = ocrBusy.then(async () => finishOCR(await tesseractOCR(2), 'Tesseract'))
+    .catch(e => { setStatus(''); toast('อ่านภาพไม่สำเร็จ: ' + (e.message||e), 'bad'); });
+}
+
+/** เอาผล Google มาเติม: ติ๊กคนที่ตกหล่น แก้ดาเมจ และล้างชื่อแปลก ๆ ที่ Tesseract อ่านผิด */
+function refineWithGoogle(found, secs){
+  const before = new Map([...state.selected].map(([k, v]) => [k, v.contribution || 0]));
+  const quickFresh = new Set(state.fresh);
+  mergeResults(found);
+  const added = [...state.selected.keys()].filter(n => !before.has(n));
+  const fixed = [...state.selected].filter(([n, v]) => before.has(n) && (v.contribution || 0) !== before.get(n)).length;
+  // ชื่อที่ไม่อยู่ในรายชื่อจาก Tesseract: ถ้า Google จับคู่ได้ (ดาเมจเท่ากัน) หรือ Google ไม่เห็นชื่อนั้นเลย ให้ตัดทิ้ง
+  const gRaw = new Set(found.filter(f => !f.member).map(f => lc(f.name)));
+  const gNums = new Set(found.filter(f => f.member && f.contribution).map(f => f.contribution));
+  state.unmatched = state.unmatched.filter(u => gRaw.has(lc(u.raw)) || (!gNums.has(u.contribution) && !u.quick));
+  state.fresh = new Set(added);
+  const total = found.filter(f => f.member).length;
+  setStatus(`[Google OCR ✓ ${secs} วิ] ยืนยันแล้ว ${total} คน` +
+    (added.length ? ` · เพิ่มที่ตกหล่น ${added.length} คน (${added.slice(0,4).join(', ')}${added.length>4?'…':''})` : ' · ไม่มีชื่อตกหล่น') +
+    (fixed ? ` · แก้ดาเมจ ${fixed} คน` : '') +
+    (state.unmatched.length ? ` · ไม่อยู่ในรายชื่อ ${state.unmatched.length} ชื่อ` : ''), null);
+  renderMembers(); renderUnmatched();
+  setTimeout(() => { state.fresh.clear(); }, 1700);
+  if (added.length) toast(`Google OCR เพิ่มชื่อที่ตกหล่น ${added.length} คน`, 'ok');
 }
 function finishOCR(found, engine){
-  const r = mergeResults(found);
+  const r = mergeResults(found, engine === 'ด่วน');
   setStatus(`[${engine}] อ่านได้ ${found.length} รายการ · ติ๊กสมาชิกให้แล้ว ${r.matched} คน` + (r.unmatched ? ` · ไม่อยู่ในรายชื่อ ${r.unmatched} ชื่อ` : ''), null);
   $('search').value = ''; $('noteFilter').value = '';
   renderMembers(); renderUnmatched();
@@ -1054,17 +1114,18 @@ function parseText(text){
   }
   return out;
 }
-function mergeResults(found){
+function mergeResults(found, quick){
   let matched=0, unmatched=0;
   state.fresh = new Set();
   for (const f of found){
+    if (f.member && state.userUnchecked?.has(f.name)) continue;   // คนที่ผู้ใช้เอาออกเอง ไม่ติ๊กกลับ
     if (f.member){
       const prev = state.selected.get(f.name);
       state.selected.set(f.name, { contribution:Math.max(prev?.contribution||0, f.contribution), source:'scan' });
       if (!prev) state.fresh.add(f.name);
       matched++;
     } else if (!state.selected.has(f.name) && !state.unmatched.some(u => u.raw === f.name)){
-      state.unmatched.push({ raw:f.name, contribution:f.contribution }); unmatched++;
+      state.unmatched.push({ raw:f.name, contribution:f.contribution, quick:!!quick }); unmatched++;
     }
   }
   return { matched, unmatched };
@@ -1560,7 +1621,7 @@ function catalogForm(kind, it){
 /* ================= SETTINGS ================= */
 function fillSettings(){
   $('sUrl').value = settings.apiUrl; $('sKey').value = settings.key; $('sRecorder').value = settings.recorder;
-  $('sLang').value = settings.lang; $('sEngine').value = settings.engine || 'google'; $('sTh').value = settings.threshold; $('sThVal').textContent = settings.threshold + '%';
+  $('sLang').value = settings.lang; $('sEngine').value = settings.engine || 'hybrid'; $('sTh').value = settings.threshold; $('sThVal').textContent = settings.threshold + '%';
   $('welcome').textContent = settings.recorder ? `ยินดีต้อนรับ, ${settings.recorder}` : 'บันทึกการลงบอสของแคลน';
 }
 $('sTh').oninput = e => { settings.threshold = +e.target.value; $('sThVal').textContent = settings.threshold + '%'; saveSettingsLS(); };
