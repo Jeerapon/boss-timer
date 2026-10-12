@@ -26,8 +26,8 @@ const SH = {
 
 const HEAD = {
   members: ['Name', 'Status', 'Joined Date', 'Note', 'Alias'],
-  bosses: ['Boss Name', 'Points'],
-  events: ['Event Name', 'Points'],
+  bosses: ['Boss Name', 'Points', 'Image'],
+  events: ['Event Name', 'Points', 'Image'],
   att: ['Session ID', 'Recorded At', 'Time', 'Boss / Event', 'Points',
         'Member', 'Contribution', 'Recorded By', 'Type'],
   audit: ['Time', 'Action', 'By', 'Device', 'Category', 'Target', 'Session ID', 'Detail']
@@ -76,6 +76,11 @@ function setup() {
     e = ss.insertSheet(SH.events);
     writeHead_(e, HEAD.events);
   }
+  // Image column (boss/event portrait: small picture stored in the cell, or an image link)
+  [b, e].forEach(function (sh, i) {
+    if (String(sh.getRange(1, 3).getValue()).trim() !== 'Image') writeHead_(sh, i ? HEAD.events : HEAD.bosses);
+    sh.setColumnWidth(3, 120);
+  });
 
   // ---- Attendance ----
   let a = ss.getSheetByName(SH.att);
@@ -280,7 +285,7 @@ function addMembers_(names) {
 function getCatalog_(kind) {
   return rows_(kind)
     .filter(function (r) { return String(r.v[0]).trim(); })
-    .map(function (r) { return { name: String(r.v[0]).trim(), points: Number(r.v[1]) || 0 }; });
+    .map(function (r) { return { name: String(r.v[0]).trim(), points: Number(r.v[1]) || 0, image: String(r.v[2] || '') }; });
 }
 
 function saveCatalog_(b) {
@@ -288,18 +293,22 @@ function saveCatalog_(b) {
   const label = kind === 'events' ? 'Event' : 'Boss';
   const name = String(b.name || '').trim();
   if (!name) throw new Error('Please enter a ' + label.toLowerCase() + ' name');
-  const values = [[name, Number(b.points) || 0]];
   const sheet = sheet_(kind);
   const dup = findRow_(kind, name);
+  const orig = b.original ? findRow_(kind, b.original) : null;
+  // image: undefined = keep current, '' = remove, otherwise data:image/... or https://... link
+  let image = b.image === undefined ? (orig ? String(orig.v[2] || '') : '') : String(b.image || '');
+  if (image && !/^(data:image\/(png|jpe?g|webp);base64,|https:\/\/)/.test(image)) throw new Error('Image must be an uploaded picture or an https:// link');
+  if (image.length > 48000) throw new Error('Image is too large — use a smaller picture');
+  const values = [[name, Number(b.points) || 0, image]];
 
   if (b.original) {
-    const row = findRow_(kind, b.original);
-    if (!row) throw new Error(label + ' not found: ' + b.original);
-    if (dup && dup.row !== row.row) throw new Error(label + ' "' + name + '" already exists');
-    sheet.getRange(row.row, 1, 1, 2).setValues(values);
+    if (!orig) throw new Error(label + ' not found: ' + b.original);
+    if (dup && dup.row !== orig.row) throw new Error(label + ' "' + name + '" already exists');
+    sheet.getRange(orig.row, 1, 1, 3).setValues(values);
   } else {
     if (dup) throw new Error(label + ' "' + name + '" already exists');
-    sheet.getRange(sheet.getLastRow() + 1, 1, 1, 2).setValues(values);
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, 3).setValues(values);
   }
   return { ok: true, kind: kind, list: getCatalog_(kind) };
 }
@@ -542,6 +551,7 @@ function getDashboard_(from, to) {
   const runs = { boss: {}, event: {} }, per = {}, daily = {};
   const blank = function () { return { n: 0, pts: 0, dmg: 0, last: '', _d: {}, _ids: {} }; };
 
+  const meta = { runs: 0, first: '', last: '' }, allIds = {};
   rows_('att').forEach(function (r) {
     const v = r.v;
     if (!v[0] || !v[5]) return;
@@ -549,6 +559,9 @@ function getDashboard_(from, to) {
     const tm = v[2] instanceof Date ? v[2] : new Date(v[2]);
     if (isNaN(tm.getTime())) return;
     const day = Utilities.formatDate(tm, tz, 'yyyy-MM-dd');
+    if (!allIds[v[0]]) { allIds[v[0]] = 1; meta.runs++; }
+    if (!meta.first || day < meta.first) meta.first = day;
+    if (day > meta.last) meta.last = day;
     if (from && day < from) return;
     if (to && day > to) return;
     const id = String(v[0]), key = String(v[5]).trim().toLowerCase();
@@ -599,7 +612,7 @@ function getDashboard_(from, to) {
       event: { runs: Object.keys(d.event.runs).length, players: Object.keys(d.event.players).length } };
   });
 
-  return { totals: { boss: runDays.boss.length, event: runDays.event.length }, players: players, days: days };
+  return { totals: { boss: runDays.boss.length, event: runDays.event.length }, players: players, days: days, meta: meta };
 }
 
 /* ======================= AUDIT LOG ======================= */
@@ -728,8 +741,9 @@ function audit_(b, bf, r) {
         const ch = [];
         if (o.name !== String(b.name).trim()) ch.push('Name: ' + o.name + ' → ' + b.name);
         if (o.points !== (Number(b.points) || 0)) ch.push('Points: ' + o.points + ' → ' + b.points);
+        if (b.image !== undefined && (o.image || '') !== String(b.image || '')) ch.push(b.image ? (o.image ? 'Image changed' : 'Image added') : 'Image removed');
         detail = ch.join(' · ') || 'No changes';
-      } else { action = 'Added ' + label; detail = (Number(b.points) || 0) + ' pts'; }
+      } else { action = 'Added ' + label; detail = (Number(b.points) || 0) + ' pts' + (b.image ? ' · with image' : ''); }
       break;
     }
     default: return;
