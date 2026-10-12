@@ -130,6 +130,8 @@ function doGet(e) {
         return json_({ ok: true, history: getHistory_(Number(p.limit) || 50, p.type) });
       case 'audit':
         return json_({ ok: true, log: getAudit_(p.sessionId, Number(p.limit) || 300, p.category) });
+      case 'dashboard':
+        return json_(Object.assign({ ok: true }, getDashboard_(p.from, p.to)));
       case 'recap':
         return json_(Object.assign({ ok: true }, getRecap_(p.type, p.from, p.to)));
       default:
@@ -528,6 +530,76 @@ function getRecap_(type, from, to) {
     .sort(function (a, b) { return a.time < b.time ? 1 : -1; }).slice(0, 300);
 
   return { recap: recap, days: dayList, sessions: sessionList };
+}
+
+/* ======================= DASHBOARD ======================= */
+/**
+ * Member activity analysis for a date range, split by Boss / Event.
+ * Attendance rate only counts runs on or after the member's Joined date (fair for new members).
+ */
+function getDashboard_(from, to) {
+  const tz = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone();
+  const runs = { boss: {}, event: {} }, per = {}, daily = {};
+  const blank = function () { return { n: 0, pts: 0, dmg: 0, last: '', _d: {}, _ids: {} }; };
+
+  rows_('att').forEach(function (r) {
+    const v = r.v;
+    if (!v[0] || !v[5]) return;
+    const t = String(v[8] || 'Boss').toLowerCase() === 'event' ? 'event' : 'boss';
+    const tm = v[2] instanceof Date ? v[2] : new Date(v[2]);
+    if (isNaN(tm.getTime())) return;
+    const day = Utilities.formatDate(tm, tz, 'yyyy-MM-dd');
+    if (from && day < from) return;
+    if (to && day > to) return;
+    const id = String(v[0]), key = String(v[5]).trim().toLowerCase();
+
+    if (!runs[t][id]) runs[t][id] = day;
+    if (!per[key]) per[key] = { name: String(v[5]).trim(), boss: blank(), event: blank() };
+    const s = per[key][t];
+    if (s._ids[id]) return;                 // same player twice in one run = count once
+    s._ids[id] = 1; s.n += 1; s.pts += Number(v[4]) || 0; s.dmg += Number(v[6]) || 0; s._d[day] = 1;
+    const iso = toIso_(tm); if (iso > s.last) s.last = iso;
+
+    if (!daily[day]) daily[day] = { date: day, boss: { runs: {}, players: {} }, event: { runs: {}, players: {} } };
+    daily[day][t].runs[id] = 1; daily[day][t].players[key] = 1;
+  });
+
+  const runDays = {
+    boss: Object.keys(runs.boss).map(function (k) { return runs.boss[k]; }),
+    event: Object.keys(runs.event).map(function (k) { return runs.event[k]; })
+  };
+  const eligible = function (t, joined) {
+    if (!joined) return runDays[t].length;
+    return runDays[t].filter(function (d) { return d >= joined; }).length;
+  };
+  const pack = function (s, t, joined) {
+    return { n: s.n, pts: Math.round(s.pts * 100) / 100, dmg: s.dmg, last: s.last,
+             days: Object.keys(s._d).length, eligible: Math.max(eligible(t, joined), s.n) };
+  };
+
+  const players = [], seen = {};
+  getMembers_().forEach(function (m) {
+    const key = m.name.toLowerCase(); seen[key] = 1;
+    const x = per[key] || { boss: blank(), event: blank() };
+    const j = /^\d{4}-\d{2}-\d{2}$/.test(m.joined) ? m.joined : '';
+    players.push({ name: m.name, status: m.status, note: m.note, joined: m.joined,
+                   boss: pack(x.boss, 'boss', j), event: pack(x.event, 'event', j) });
+  });
+  Object.keys(per).forEach(function (key) {
+    if (seen[key]) return;
+    const x = per[key];
+    players.push({ name: x.name, status: 'Unknown', note: '', joined: '',
+                   boss: pack(x.boss, 'boss', ''), event: pack(x.event, 'event', '') });
+  });
+
+  const days = Object.keys(daily).sort().map(function (k) {
+    const d = daily[k];
+    return { date: k,
+      boss: { runs: Object.keys(d.boss.runs).length, players: Object.keys(d.boss.players).length },
+      event: { runs: Object.keys(d.event.runs).length, players: Object.keys(d.event.players).length } };
+  });
+
+  return { totals: { boss: runDays.boss.length, event: runDays.event.length }, players: players, days: days };
 }
 
 /* ======================= AUDIT LOG ======================= */
