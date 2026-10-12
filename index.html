@@ -268,6 +268,28 @@ th.sortable:hover{color:var(--text)}
 th.sortable.on{color:var(--accent)}
 .split{display:flex;gap:4px;justify-content:flex-end;font-variant-numeric:tabular-nums}
 .split span{min-width:44px;text-align:right}
+.bimg{flex:0 0 auto;border-radius:6px;object-fit:cover;background:#16263f;border:1px solid var(--line-2);display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-weight:700;overflow:hidden;vertical-align:middle}
+.bimg.ph{background:linear-gradient(135deg,#1a2f52,#0f1d33)}
+.target-row{display:flex;gap:8px;align-items:flex-end}
+.target-row .field{flex:1}
+.target-card{display:flex;align-items:center;gap:12px;margin:2px 0 12px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:linear-gradient(90deg,#13274a,#0c192e 70%)}
+.target-card b{font-size:17px;letter-spacing:.02em}
+.target-card .note{font-size:12.5px}
+.bp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;max-height:52vh;overflow:auto;padding:2px}
+.bp-tile{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 6px;border:1px solid var(--line);border-radius:6px;background:#0c192e;cursor:pointer;text-align:center;font-size:12.5px;color:var(--text)}
+.bp-tile:hover{border-color:var(--accent);background:#13274a}
+.bp-tile.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.bp-tile .pts{color:var(--gold);font-size:11.5px}
+.imged{display:flex;gap:12px;align-items:flex-start}
+.imged-btns{display:flex;flex-wrap:wrap;gap:6px}
+.crop-wrap{position:relative;border:1px dashed var(--line-2);border-radius:5px;background:#081221;display:flex;justify-content:center}
+.crop-wrap canvas{display:block;max-width:100%;cursor:crosshair;touch-action:none}
+.pp-ctrl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pp-ctrl select,.pp-ctrl input{width:auto;padding:5px 8px;font-size:13.5px}
+.pp-ctrl .lbl{min-width:170px;text-align:center;font-weight:600;font-size:14.5px}
+.pp-ctrl .wd{color:var(--muted);font-size:12.5px;min-width:30px}
+.pchip.mode{border-style:solid}
+.chips-row .sep{width:1px;background:var(--line-2);margin:4px 2px}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#0b182c;border:1px solid var(--line);border-radius:4px;padding:9px 12px}
 .switch input{width:40px;height:22px;accent-color:var(--ok);cursor:pointer}
 
@@ -303,10 +325,14 @@ th.sortable.on{color:var(--accent)}
             <button data-type="event">Clan Event</button>
           </span>
         </h2>
+        <div class="target-card" id="targetCard" hidden></div>
         <div class="row">
-          <label class="field"><span id="targetLabel">Boss</span>
-            <select id="target"></select>
-          </label>
+          <div class="field"><span id="targetLabel">Boss</span>
+            <div class="target-row">
+              <select id="target"></select>
+              <button type="button" class="ibtn" id="btnPick" title="Pick from pictures" aria-label="Pick from pictures" style="width:38px;height:38px">🖼</button>
+            </div>
+          </div>
           <label class="field"><span id="timeLabel">Kill time</span>
             <input type="datetime-local" id="killTime">
           </label>
@@ -408,26 +434,7 @@ th.sortable.on{color:var(--accent)}
         <button class="btn small" id="btnRecap">↻ Refresh</button>
       </h2>
 
-      <div class="period">
-        <div class="chips-row" id="presetRow">
-          <button class="pchip" data-p="today">Today</button>
-          <button class="pchip" data-p="yesterday">Yesterday</button>
-          <button class="pchip" data-p="7d">Last 7 days</button>
-          <button class="pchip" data-p="30d">Last 30 days</button>
-          <button class="pchip" data-p="month">This month</button>
-          <button class="pchip" data-p="lastmonth">Last month</button>
-          <button class="pchip" data-p="all">All time</button>
-          <button class="pchip" data-p="custom">Custom</button>
-        </div>
-        <div class="daynav">
-          <button class="ibtn" id="rPrev" aria-label="Previous">‹</button>
-          <span class="lbl" id="rLabel">-</span>
-          <button class="ibtn" id="rNext" aria-label="Next">›</button>
-        </div>
-      </div>
-      <div class="custom-range" id="customRange" hidden style="margin:-4px 0 14px">
-        From <input type="date" id="rFrom"> to <input type="date" id="rTo">
-      </div>
+      <div id="recapPeriod"></div>
 
       <div class="stats">
         <div class="stat a"><div class="k">Runs</div><div class="v" id="stRounds">-</div><div class="s" id="stRoundsSub">&nbsp;</div></div>
@@ -474,16 +481,7 @@ th.sortable.on{color:var(--accent)}
         <button class="btn small" id="btnCopyDash" title="Copy ranking for Discord">📋 Copy</button>
         <button class="btn small" id="btnDash">↻ Refresh</button>
       </h2>
-      <div class="period">
-        <div class="chips-row" id="dashPreset">
-          <button class="pchip" data-p="7d">Last 7 days</button>
-          <button class="pchip on" data-p="30d">Last 30 days</button>
-          <button class="pchip" data-p="month">This month</button>
-          <button class="pchip" data-p="lastmonth">Last month</button>
-          <button class="pchip" data-p="all">All time</button>
-        </div>
-        <span class="note" id="dashRange"></span>
-      </div>
+      <div id="dashPeriod"></div>
 
       <div class="stats">
         <div class="stat a"><div class="k" id="dkRuns">Boss runs</div><div class="v" id="dRuns">-</div><div class="s" id="dRunsSub">&nbsp;</div></div>
@@ -573,7 +571,7 @@ th.sortable.on{color:var(--accent)}
         </h2>
         <div class="toolbar"><input type="search" id="bossSearch" placeholder="Search boss…"></div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Boss</th><th class="num">Points</th><th></th></tr></thead>
+          <thead><tr><th style="width:54px"></th><th>Boss</th><th class="num">Points</th><th></th></tr></thead>
           <tbody id="bossBody"></tbody>
         </table></div>
       </div>
@@ -586,7 +584,7 @@ th.sortable.on{color:var(--accent)}
         </h2>
         <div class="toolbar"><input type="search" id="eventSearch" placeholder="Search event…"></div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Event</th><th class="num">Points</th><th></th></tr></thead>
+          <thead><tr><th style="width:54px"></th><th>Event</th><th class="num">Points</th><th></th></tr></thead>
           <tbody id="eventBody"></tbody>
         </table></div>
       </div>
@@ -664,7 +662,7 @@ const LS = {
 /* ===== Default config for the hosted (Render) site =====
    Put your Apps Script Web app URL here so players don't have to paste it.
    (Never put the secret key in this file — each person enters it in Settings.) */
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxuFnMaPtex36bKLylFa7g2sO60ai2TDaih7wQbLuBY4eNxdqGGh7XRnI3vGvN43Ji9lQ/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbx2ajBp_Mg8zu6RaZoW4ajIuvG-iQ6FXj2sHvT78KSeizFQQaREmX_7NBOGKmfz_pLPVQ/exec';
 
 const settings = Object.assign({ apiUrl:'', key:'', recorder:'', lang:'eng', threshold:75, crop:null, engine:'hybrid' }, LS.get('bt.settings', {}));
 if (!settings.apiUrl && DEFAULT_API_URL) settings.apiUrl = DEFAULT_API_URL;
@@ -842,6 +840,46 @@ segBind('typeSeg', 'type', t => {
   $('timeLabel').textContent = t === 'event' ? 'Event time' : 'Kill time';
   renderTargets();
 });
+/* ---------- boss / event pictures ---------- */
+function catItem(name, type){
+  const k = lc(String(name || '')), t = lc(String(type || ''));
+  const pools = t === 'event' ? [data.events, data.bosses] : t === 'boss' ? [data.bosses, data.events] : [data.bosses, data.events];
+  for (const p of pools){ const it = (p || []).find(x => lc(x.name) === k); if (it) return it; }
+  return null;
+}
+function bossImg(name, size = 32, type){
+  const it = catItem(name, type);
+  const st = `width:${size}px;height:${size}px`;
+  if (it && it.image) return `<img class="bimg" src="${esc(it.image)}" alt="" style="${st}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'bimg ph',style:'${st}',textContent:'${esc(String(name||'?').charAt(0).toUpperCase())}'}))">`;
+  return `<span class="bimg ph" style="${st};font-size:${Math.round(size*0.42)}px">${esc(String(name || '?').trim().charAt(0).toUpperCase() || '?')}</span>`;
+}
+function renderTargetCard(){
+  const list = state.type === 'event' ? data.events : data.bosses;
+  const it = list.find(x => x.name === $('target').value);
+  $('targetCard').hidden = !it;
+  if (it) $('targetCard').innerHTML = `${bossImg(it.name, 56, state.type)}<div><b>${esc(it.name)}</b><div class="note">${state.type === 'event' ? 'Clan Event' : 'Boss'} · ${it.points} pts</div></div>`;
+}
+function openBossPicker(){
+  const kind = state.type === 'event' ? 'events' : 'bosses';
+  const list = data[kind], cur = $('target').value;
+  if (!list.length){ toast(`No ${kind} yet — add them in Admin`, 'bad'); return; }
+  openModal({
+    title: state.type === 'event' ? 'Pick event' : 'Pick boss', okText: null,
+    body: `<input type="search" id="bp-q" placeholder="Search…">
+      <div class="bp-grid" id="bp-grid">${list.map(x => `<button type="button" class="bp-tile${x.name === cur ? ' on' : ''}" data-n="${esc(x.name)}">
+        ${bossImg(x.name, 64, state.type)}<span>${esc(x.name)}</span><span class="pts">${x.points} pts</span></button>`).join('')}</div>`
+  });
+  $('bp-grid').addEventListener('click', e => {
+    const t = e.target.closest('.bp-tile'); if (!t) return;
+    $('target').value = t.dataset.n; $('target').onchange(); dlg.close();
+  });
+  $('bp-q').addEventListener('input', e => {
+    const q = lc(e.target.value.trim());
+    $('bp-grid').querySelectorAll('.bp-tile').forEach(t => t.hidden = q && !lc(t.dataset.n).includes(q));
+  });
+  setTimeout(() => $('bp-q').focus(), 30);
+}
+
 function renderTargets(){
   const list = state.type === 'event' ? data.events : data.bosses;
   const cur = $('target').value;
@@ -849,11 +887,14 @@ function renderTargets(){
   $('target').innerHTML = `<option value="">— Select ${label} (${list.length}) —</option>` +
     list.map(x => `<option value="${esc(x.name)}">${esc(x.name)} · ${x.points} pts</option>`).join('');
   if (list.some(x => x.name === cur)) $('target').value = cur;
+  renderTargetCard();
 }
+$('btnPick').onclick = openBossPicker;
 $('target').onchange = () => {
   const list = state.type === 'event' ? data.events : data.bosses;
   const it = list.find(x => x.name === $('target').value);
   if (it) $('points').value = it.points;
+  renderTargetCard();
 };
 $('killTime').value = localInput();
 const pts = $('points');
@@ -1401,7 +1442,7 @@ function renderHistory(){
     return `<div class="sess" data-i="${i}">
       <div class="sess-head">
         <span class="pill ${ev?'event':'boss'}">${ev?'Event':'Boss'}</span>
-        <b>${esc(h.name)}</b>
+        ${bossImg(h.name, 30, h.type)}<b>${esc(h.name)}</b>
         <span class="sess-meta">${thDateTime(h.time)} · ${h.points} pts · ${h.members.length} players${h.recordedBy ? ' · by ' + esc(h.recordedBy) : ''}</span>
         ${h.edits ? `<button class="editlink" data-act="log" title="See who added/removed what in this run">✎ Edited ${h.edits}×</button>` : ''}
         <span class="grow"></span>
@@ -1539,33 +1580,109 @@ function presetRange(p){
     default: return [state.range.from || addDays(t, -6), state.range.to || t];
   }
 }
-function setRange(preset, from, to){
-  if (preset !== 'custom' && preset !== 'day') [from, to] = presetRange(preset);
-  if (from && to && from > to) [from, to] = [to, from];
-  state.range = { preset, from, to };
-  LS.set('bt.recapRange', state.range);
-  renderPeriod();
-  loadRecap();
+/* ---------- Period picker (Day / Month / Year / Custom …) used by Leaderboard + Dashboard ---------- */
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function PeriodPicker(root, { key, mode = '7d', onChange }){
+  const today = () => ymd(new Date());
+  const t0 = today();
+  const st = Object.assign({ mode, day:t0, month:t0.slice(0,7), year:t0.slice(0,4), from:addDays(t0,-6), to:t0 }, LS.get(key, {}));
+  const MODES = [['day','Day'],['month','Month'],['year','Year'],['custom','Custom'],null,['7d','Last 7 days'],['30d','Last 30 days'],['all','All time']];
+  const monthEnd = ym => { const [y, m] = ym.split('-').map(Number); return ymd(new Date(y, m, 0)); };
+  function range(){
+    const t = today();
+    switch (st.mode){
+      case 'day':    return [st.day, st.day];
+      case 'month':  return [st.month + '-01', monthEnd(st.month)];
+      case 'year':   return [st.year + '-01-01', st.year + '-12-31'];
+      case '7d':     return [addDays(t, -6), t];
+      case '30d':    return [addDays(t, -29), t];
+      case 'custom': return st.from <= st.to ? [st.from, st.to] : [st.to, st.from];
+      default:       return ['', ''];
+    }
+  }
+  function label(){
+    const [f, t] = range();
+    if (st.mode === 'all') return 'All time';
+    if (st.mode === 'day') return longTh(f);
+    if (st.mode === 'month'){ const [y, m] = st.month.split('-'); return `${MONTHS[+m-1]} ${y}`; }
+    if (st.mode === 'year') return `Year ${st.year}`;
+    return `${shortTh(f)} – ${shortTh(t)} ${parseYmd(t).toLocaleDateString('en-GB',{year:'numeric'})}`;
+  }
+  function canNext(){
+    const t = today();
+    if (st.mode === 'day') return st.day < t;
+    if (st.mode === 'month') return st.month < t.slice(0,7);
+    if (st.mode === 'year') return st.year < t.slice(0,4);
+    if (st.mode === 'all') return false;
+    return range()[1] < t;
+  }
+  function shift(dir){
+    if (st.mode === 'day') st.day = addDays(st.day, dir);
+    else if (st.mode === 'month'){ const [y, m] = st.month.split('-').map(Number); st.month = ymd(new Date(y, m - 1 + dir, 1)).slice(0,7); }
+    else if (st.mode === 'year') st.year = String(+st.year + dir);
+    else if (st.mode !== 'all'){
+      const [f, t] = range(), n = daysBetween(f, t);
+      st.mode = 'custom'; st.from = addDays(f, dir*n); st.to = addDays(t, dir*n);
+    }
+  }
+  function years(){
+    const cy = +today().slice(0,4), out = [];
+    for (let y = cy; y >= Math.min(cy - 4, +st.year); y--) out.push(y);
+    return out;
+  }
+  function ctrl(){
+    const t = today();
+    switch (st.mode){
+      case 'day': return `<input type="date" data-f="day" value="${st.day}" max="${t}"><span class="wd">${parseYmd(st.day).toLocaleDateString('en-GB',{weekday:'short'})}</span>`;
+      case 'month': { const [y, m] = st.month.split('-');
+        return `<select data-f="mm" aria-label="Month">${MONTHS.map((n, i) => `<option value="${String(i+1).padStart(2,'0')}"${+m === i+1 ? ' selected' : ''}>${n}</option>`).join('')}</select>
+                <select data-f="my" aria-label="Year">${years().map(v => `<option${String(v) === y ? ' selected' : ''}>${v}</option>`).join('')}</select>`; }
+      case 'year': return `<select data-f="yy" aria-label="Year">${years().map(v => `<option${String(v) === st.year ? ' selected' : ''}>${v}</option>`).join('')}</select>`;
+      case 'custom': return `<input type="date" data-f="from" value="${st.from}" max="${t}" aria-label="From"> – <input type="date" data-f="to" value="${st.to}" max="${t}" aria-label="To">`;
+      default: return `<span class="lbl">${label()}</span>`;
+    }
+  }
+  function render(){
+    root.innerHTML = `<div class="period">
+      <div class="chips-row">${MODES.map(m => m ? `<button type="button" class="pchip${st.mode === m[0] ? ' on' : ''}" data-m="${m[0]}">${m[1]}</button>` : '<span class="sep"></span>').join('')}</div>
+      <div class="daynav">
+        <button type="button" class="ibtn" data-nav="-1" aria-label="Previous"${st.mode === 'all' ? ' disabled' : ''}>‹</button>
+        <span class="pp-ctrl">${ctrl()}</span>
+        <button type="button" class="ibtn" data-nav="1" aria-label="Next"${canNext() ? '' : ' disabled'}>›</button>
+      </div></div>`;
+  }
+  function fire(){ LS.set(key, st); render(); onChange && onChange(range()); }
+  root.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.dataset.m){
+      const [f, t] = range();
+      if (b.dataset.m === 'custom' && f){ st.from = f; st.to = t; }        // start Custom from the current view
+      st.mode = b.dataset.m; fire();
+    } else if (b.dataset.nav){ shift(+b.dataset.nav); fire(); }
+  });
+  root.addEventListener('change', e => {
+    const el = e.target, v = el.value; if (!v) return;
+    const f = el.dataset.f;
+    if (f === 'day') st.day = v;
+    else if (f === 'mm') st.month = st.month.slice(0,4) + '-' + v;
+    else if (f === 'my') st.month = v + '-' + st.month.slice(5,7);
+    else if (f === 'yy') st.year = v;
+    else if (f === 'from') st.from = v;
+    else if (f === 'to') st.to = v;
+    else return;
+    fire();
+  });
+  render();
+  return {
+    range, label, render,
+    get mode(){ return st.mode; },
+    set(mode, v){ st.mode = mode; if (mode === 'day') st.day = v; if (mode === 'month') st.month = v; if (mode === 'year') st.year = v; fire(); }
+  };
 }
-function renderPeriod(){
-  const { preset, from, to } = state.range;
-  $('presetRow').querySelectorAll('.pchip').forEach(b => b.classList.toggle('on', b.dataset.p === preset));
-  $('customRange').hidden = preset !== 'custom';
-  $('rFrom').value = from; $('rTo').value = to;
-  const all = !from && !to;
-  $('rLabel').textContent = all ? 'All time' : from === to ? longTh(from) : `${shortTh(from)} – ${shortTh(to)} ${parseYmd(to).toLocaleDateString('en-GB',{year:'2-digit'})}`;
-  $('rPrev').disabled = $('rNext').disabled = all;
-  $('rNext').disabled = all || to >= ymd(new Date());
-}
-$('presetRow').addEventListener('click', e => { const b = e.target.closest('.pchip'); if (b) setRange(b.dataset.p, state.range.from, state.range.to); });
-['rFrom','rTo'].forEach(id => $(id).addEventListener('change', () => { if ($('rFrom').value && $('rTo').value) setRange('custom', $('rFrom').value, $('rTo').value); }));
-function shiftRange(dir){
-  const { from, to } = state.range; if (!from) return;
-  const n = daysBetween(from, to);
-  setRange(n === 1 ? 'day' : 'custom', addDays(from, dir*n), addDays(to, dir*n));
-}
-$('rPrev').onclick = () => shiftRange(-1);
-$('rNext').onclick = () => shiftRange(1);
+
+const recapPP = PeriodPicker($('recapPeriod'), { key:'bt.recapPP', mode:'7d', onChange: () => loadRecap() });
+function renderPeriod(){ const [from, to] = recapPP.range(); state.range = { preset: recapPP.mode, from, to }; }
+function setRange(preset, from){ recapPP.set(preset === 'day' ? 'day' : preset, from); }
 
 segBind('recapSeg', 'f', f => { state.recapFilter = f; loadRecap(); });
 $('btnRecap').onclick = () => loadRecap();
@@ -1578,8 +1695,10 @@ async function loadRecap(){
   renderPeriod();
   if (!settings.apiUrl){ body.innerHTML = `<tr><td colspan="9" class="note">Connect Google Sheet in Settings first</td></tr>`; return; }
   body.innerHTML = `<tr><td colspan="9" class="note">Loading…</td></tr>`;
+  const tok = state.recapTok = (state.recapTok || 0) + 1;
   try{
     const j = await apiGet('recap', { type:state.recapFilter, from:state.range.from, to:state.range.to });
+    if (tok !== state.recapTok) return;                 // a newer request is on its way
     state.recap = j.recap; state.recapDays = j.days || []; state.recapSessions = j.sessions || [];
     renderRecap();
   }catch(e){ body.innerHTML = `<tr><td colspan="9" class="note">${esc(e.message)}</td></tr>`; }
@@ -1648,7 +1767,7 @@ function renderChart(){
     return `<span class="${first?'mo':''}">${show ? (first ? shortTh(d.date) : dt.getDate()) : ''}</span>`;
   }).join('');
 }
-$('chart').addEventListener('click', e => { const b = e.target.closest('.bar'); if (b) setRange('day', b.dataset.d, b.dataset.d); });
+$('chart').addEventListener('click', e => { const b = e.target.closest('.bar'); if (b) recapPP.set('day', b.dataset.d); });
 
 function renderRounds(){
   const { from, to } = state.range;
@@ -1660,7 +1779,7 @@ function renderRounds(){
   $('rounds').innerHTML = ses.length ? ses.map(x => `<div class="round">
       <span class="t">${new Date(x.time).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
       <span class="pill ${x.type}">${x.type==='event'?'Event':'Boss'}</span>
-      <b>${esc(x.name)}</b>
+      <span style="display:flex;align-items:center;gap:8px">${bossImg(x.name, 26, x.type)}<b>${esc(x.name)}</b></span>
       <span class="c">${x.count} players</span>
       <span class="p">${x.points} pts</span></div>`).join('')
     : `<div class="empty-box" style="padding:12px">No runs this day</div>`;
@@ -1671,7 +1790,7 @@ $('btnCopyRecap').onclick = async () => {
   const list = state.recap.filter(r => noteMatch(noteOf(r.name), nf) && (!hide || r.status !== 'Inactive'));
   if (!list.length){ toast('Nothing to copy yet', 'bad'); return; }
   const type = { all:'', boss:' (Boss)', event:' (Event)' }[state.recapFilter];
-  const head = `📊 Leaderboard${type} · ${$('rLabel').textContent}${nf && nf !== '__none' ? ' · ' + nf : ''}\n` +
+  const head = `📊 Leaderboard${type} · ${recapPP.label()}${nf && nf !== '__none' ? ' · ' + nf : ''}\n` +
     `Runs: ${state.recapSessions.length} · Players: ${list.length}\n`;
   const medal = ['🥇','🥈','🥉'];
   const body = list.map((r, i) => `${medal[i] || (i+1) + '.'} ${r.name} — ${r.points} pts (Boss ${r.boss}${r.event ? ` · Event ${r.event}` : ''})`).join('\n');
@@ -1712,10 +1831,7 @@ const pct = r => Math.round(r * 100) + '%';
 const rateColor = r => r >= .8 ? '#ffcf6b' : r >= .5 ? '#46d3a0' : r >= .2 ? '#7fb4ff' : r > 0 ? '#ff9d7a' : '#ff7d7d';
 
 segBind('dashType', 't', t => { state.dash.type = t; state.dash.tier = ''; saveDash(); renderDash(); });
-$('dashPreset').addEventListener('click', e => {
-  const b = e.target.closest('.pchip'); if (!b) return;
-  state.dash.preset = b.dataset.p; saveDash(); loadDash();
-});
+const dashPP = PeriodPicker($('dashPeriod'), { key:'bt.dashPP', mode:'30d', onChange: () => loadDash() });
 $('btnDash').onclick = () => loadDash();
 ['dashSearch','dashNote','dashHideInactive'].forEach(id => $(id).addEventListener(id === 'dashSearch' ? 'input' : 'change', renderDash));
 (function initDashUI(){
@@ -1723,18 +1839,18 @@ $('btnDash').onclick = () => loadDash();
 })();
 
 async function loadDash(){
-  $('dashPreset').querySelectorAll('.pchip').forEach(b => b.classList.toggle('on', b.dataset.p === state.dash.preset));
-  const [from, to] = presetRange(state.dash.preset);
+  const [from, to] = dashPP.range();
   state.dash.from = from; state.dash.to = to;
-  $('dashRange').textContent = !from ? 'All time' : `${shortTh(from)} – ${shortTh(to)}`;
   const body = $('dashBody');
   if (!settings.apiUrl){ body.innerHTML = `<tr><td class="note">Connect Google Sheet in Settings first</td></tr>`; return; }
-  body.innerHTML = `<tr><td class="note">Loading…</td></tr>`;
+  body.innerHTML = `<tr><td class="note">Loading ${esc(dashPP.label())}…</td></tr>`;
+  const tok = state.dashTok = (state.dashTok || 0) + 1;
   try {
     const j = await apiGet('dashboard', { from, to });
+    if (tok !== state.dashTok) return;                  // a newer request is on its way
     if (!j.players) throw new Error('Code.gs is outdated: paste the new code and Deploy a new version');
     state.dashData = j; renderDash();
-  } catch (e) { body.innerHTML = `<tr><td class="note">${esc(e.message)}</td></tr>`; }
+  } catch (e) { if (tok === state.dashTok) body.innerHTML = `<tr><td class="note">${esc(e.message)}</td></tr>`; }
 }
 
 function dashRows(){
@@ -1758,9 +1874,12 @@ function renderDash(){
   $('dkRuns').textContent = t === 'boss' ? 'Boss runs' : t === 'event' ? 'Event runs' : 'Total runs';
   $('dRuns').textContent = runs;
   $('dRunsSub').textContent = t === 'all' ? `Boss ${D.totals.boss} · Event ${D.totals.event}` : `${D.days.filter(d => (d[t]||{}).runs).length} active days`;
+  if (!runs && D.meta) $('dRunsSub').textContent = D.meta.runs
+    ? `none in ${dashPP.label()} · sheet has ${D.meta.runs} runs (${shortTh(D.meta.first)} ${D.meta.first.slice(0,4)} – ${shortTh(D.meta.last)} ${D.meta.last.slice(0,4)})`
+    : 'no runs saved in the sheet yet';
   const activeN = roster.filter(p => p.st.n > 0).length;
   $('dPlayers').textContent = activeN;
-  $('dPlayersSub').textContent = `of ${roster.length} on roster`;
+  $('dPlayersSub').textContent = `of ${all.filter(p => p.status !== 'Unknown').length} on roster`;
   const avgRate = roster.length ? roster.reduce((a, p) => a + p.rate, 0) / roster.length : 0;
   $('dRate').textContent = runs ? pct(avgRate) : '-';
   $('dRateSub').textContent = runs ? `avg ${(all.reduce((a, p) => a + p.st.n, 0) / Math.max(1, runs)).toFixed(1)} players per run` : 'no runs in this period';
@@ -1841,7 +1960,7 @@ function renderDashChart(){
   $('dashChartTitle').textContent = `Unique players per day · ${t === 'boss' ? 'Boss Hunting' : t === 'event' ? 'Clan Events' : 'Boss + Event'}`;
   $('dashChart').innerHTML = list.map(d => {
     const b = t === 'event' ? 0 : d.boss.players, e = t === 'boss' ? 0 : d.event.players, tot = b + e;
-    return `<div class="bar${tot?'':' zero'}" title="${longTh(d.date)}\nBoss: ${d.boss.runs} runs · ${d.boss.players} players\nEvent: ${d.event.runs} runs · ${d.event.players} players">
+    return `<div class="bar${tot?'':' zero'}" data-d="${d.date}" title="${longTh(d.date)}\nBoss: ${d.boss.runs} runs · ${d.boss.players} players\nEvent: ${d.event.runs} runs · ${d.event.players} players">
       <span class="num">${tot || ''}</span>
       <div class="stack" style="height:${Math.max(2, tot/max*110)}px"><div class="sb" style="flex:${b}"></div><div class="se" style="flex:${e}"></div></div></div>`;
   }).join('');
@@ -1850,13 +1969,14 @@ function renderDashChart(){
     return `<span class="${first?'mo':''}">${i % every === 0 || first ? (first ? shortTh(d.date) : dt.getDate()) : ''}</span>`; }).join('');
 }
 
+$('dashChart').addEventListener('click', e => { const b = e.target.closest('.bar'); if (b) dashPP.set('day', b.dataset.d); });
 $('btnCopyDash').onclick = async () => {
   const rows = dashRows().filter(p => p.status !== 'Unknown' && p.tier.k !== 'new')
     .sort((a, b) => b.rate - a.rate || b.st.n - a.st.n || b.st.pts - a.st.pts).slice(0, 15);
   if (!rows.length){ toast('Nothing to copy yet', 'bad'); return; }
   const name = { boss:'⚔ Boss Hunting', event:'🎪 Clan Events', all:'⭐ Overall' }[state.dash.type];
   const medal = ['🥇','🥈','🥉'];
-  const txt = `📈 Activity · ${name} · ${$('dashRange').textContent}\n` +
+  const txt = `📈 Activity · ${name} · ${dashPP.label()}\n` +
     rows.map((p, i) => `${medal[i] || (i+1) + '.'} ${p.name} — ${pct(p.rate)} (${p.st.n}/${p.st.eligible}) · ${Math.round(p.st.pts*10)/10} pts`).join('\n');
   try { await navigator.clipboard.writeText(txt); toast('Copied — paste it in Discord', 'ok'); }
   catch { toast('Copy failed, try again', 'bad'); }
@@ -1949,9 +2069,9 @@ function renderCatalog(kind){
   const list = data[kind].filter(x => !q || lc(x.name).includes(q));
   $(c.count).textContent = `(${data[kind].length})`;
   $(c.body).innerHTML = list.length ? list.map(x => `<tr data-n="${esc(x.name)}">
-      <td><b>${esc(x.name)}</b></td><td class="num">${x.points}</td>
+      <td>${bossImg(x.name, 40, kind === 'events' ? 'event' : 'boss')}</td><td><b>${esc(x.name)}</b></td><td class="num">${x.points}</td>
       <td class="act"><button class="ibtn" data-act="edit" aria-label="Edit ${esc(x.name)}">✎</button><button class="ibtn del" data-act="del" aria-label="Delete ${esc(x.name)}">🗑</button></td>
-    </tr>`).join('') : `<tr><td colspan="3" class="note">${data[kind].length ? 'No matches' : `No ${c.label.toLowerCase()}s yet — hit “+ Add ${c.label}” or type them into the ${kind==='events'?'Events':'Bosses'} sheet`}</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="4" class="note">${data[kind].length ? 'No matches' : `No ${c.label.toLowerCase()}s yet — hit “+ Add ${c.label}” or type them into the ${kind==='events'?'Events':'Bosses'} sheet`}</td></tr>`;
 }
 Object.keys(CAT).forEach(kind => {
   const c = CAT[kind];
@@ -1967,20 +2087,118 @@ Object.keys(CAT).forEach(kind => {
   });
 });
 document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => catalogForm(b.dataset.add, null));
+const IMG_SIZE = 128;   // stored portrait size (px, square) — small enough to live in a Sheet cell
 function catalogForm(kind, it){
   const c = CAT[kind];
+  const ed = { image: it?.image || '', changed: false, src: null, sel: null };
   openModal({
     title: it ? `Edit ${c.label.toLowerCase()} · ${it.name}` : `Add ${c.label.toLowerCase()}`,
     body: `<label class="field"><span>${c.label} name</span><input type="text" id="c-name" value="${esc(it?.name)}"></label>
-      <label class="field"><span>Points</span><input type="number" id="c-pts" value="${it ? it.points : 1}" min="0" step="0.5"></label>`,
+      <label class="field"><span>Points</span><input type="number" id="c-pts" value="${it ? it.points : 1}" min="0" step="0.5"></label>
+      <div class="field"><span>Picture</span>
+        <div class="imged">
+          <div id="ci-prev"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            <div class="imged-btns">
+              <button type="button" class="btn small" id="ci-up">📁 Upload</button>
+              <button type="button" class="btn small ghost" id="ci-del">Remove</button>
+            </div>
+            <span class="note" style="font-size:12px">Or screenshot the boss and press <b>Ctrl + V</b> here</span>
+            <input type="url" id="ci-url" placeholder="…or paste an image link (https://)" value="${/^https:/.test(it?.image || '') ? esc(it.image) : ''}">
+          </div>
+        </div>
+        <input type="file" id="ci-file" accept="image/*" hidden>
+        <div id="ci-cropbox" hidden style="margin-top:8px">
+          <div class="crop-wrap"><canvas id="ci-cv"></canvas></div>
+          <span class="note" style="font-size:12px">Drag a square around the face · click to move it</span>
+        </div>
+      </div>`,
     onOk: async () => {
       const name = $('c-name').value.trim();
       if (!name) throw new Error(`Please enter a ${c.label.toLowerCase()} name`);
-      const j = await apiPost({ action:'saveCatalog', kind, original:it?.name || '', name, points:Number($('c-pts').value) || 0 });
+      const body = { action:'saveCatalog', kind, original:it?.name || '', name, points:Number($('c-pts').value) || 0 };
+      if (ed.changed || !it) body.image = ed.image;
+      const j = await apiPost(body);
       data[kind] = j.list; saveData(); renderAll();
       toast(it ? `${name} updated` : `${name} added`, 'ok');
     }
   });
+  const prev = () => {
+    $('ci-prev').innerHTML = ed.image
+      ? `<img class="bimg" src="${esc(ed.image)}" alt="" style="width:88px;height:88px">`
+      : `<span class="bimg ph" style="width:88px;height:88px;font-size:12px;text-align:center">No<br>picture</span>`;
+  };
+  prev();
+
+  // ---- crop: square selection on the source image, output IMG_SIZE x IMG_SIZE JPEG ----
+  const cv = $('ci-cv'), g = cv.getContext('2d');
+  let drag = null;
+  const draw = () => {
+    const im = ed.src; if (!im) return;
+    const maxW = Math.min(420, $('dlgBody').clientWidth - 4);
+    const k = Math.min(1, maxW / im.width, 260 / im.height);
+    cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k); cv._k = k;
+    g.drawImage(im, 0, 0, cv.width, cv.height);
+    const { x, y, s } = ed.sel;
+    g.save(); g.fillStyle = 'rgba(4,10,20,.6)'; g.beginPath(); g.rect(0, 0, cv.width, cv.height);
+    g.rect(x*k, y*k, s*k, s*k); g.fill('evenodd');
+    g.strokeStyle = '#5b9cff'; g.lineWidth = 2; g.strokeRect(x*k, y*k, s*k, s*k); g.restore();
+  };
+  const commit = () => {
+    const { x, y, s } = ed.sel, out = document.createElement('canvas');
+    out.width = out.height = IMG_SIZE;
+    const o = out.getContext('2d'); o.imageSmoothingQuality = 'high';
+    o.drawImage(ed.src, x, y, s, s, 0, 0, IMG_SIZE, IMG_SIZE);
+    let q = 0.85, url = out.toDataURL('image/jpeg', q);
+    while (url.length > 40000 && q > 0.4){ q -= 0.1; url = out.toDataURL('image/jpeg', q); }
+    ed.image = url; ed.changed = true; $('ci-url').value = ''; prev();
+  };
+  const clampSel = sel => {
+    const W = ed.src.width, H = ed.src.height;
+    sel.s = Math.max(16, Math.min(sel.s, W, H));
+    sel.x = Math.max(0, Math.min(sel.x, W - sel.s)); sel.y = Math.max(0, Math.min(sel.y, H - sel.s));
+    return sel;
+  };
+  const loadSource = async blob => {
+    try {
+      const im = await createImageBitmap(blob);
+      ed.src = im;
+      // default square: full height, left-aligned for wide banners (portraits usually sit on the left)
+      const s0 = Math.min(im.width, im.height);
+      ed.sel = clampSel({ x: im.width > im.height * 1.3 ? 0 : (im.width - s0) / 2, y: (im.height - s0) / 2, s: s0 });
+      $('ci-cropbox').hidden = false; draw(); commit();
+    } catch { $('dlgErr').textContent = 'Could not read that image'; }
+  };
+  const pos = e => { const b = cv.getBoundingClientRect(), k = cv._k * (b.width / cv.width);
+    return { x: (e.clientX - b.left) / k, y: (e.clientY - b.top) / k }; };
+  cv.addEventListener('pointerdown', e => { drag = pos(e); cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', e => {
+    if (!drag) return; const p = pos(e), s = Math.max(Math.abs(p.x - drag.x), Math.abs(p.y - drag.y));
+    if (s < 8) return;
+    ed.sel = clampSel({ x: p.x < drag.x ? drag.x - s : drag.x, y: p.y < drag.y ? drag.y - s : drag.y, s }); draw();
+  });
+  cv.addEventListener('pointerup', e => {
+    if (!drag) return; const p = pos(e);
+    if (Math.max(Math.abs(p.x - drag.x), Math.abs(p.y - drag.y)) < 8)   // click = move square there
+      ed.sel = clampSel({ ...ed.sel, x: p.x - ed.sel.s / 2, y: p.y - ed.sel.s / 2 });
+    drag = null; draw(); commit();
+  });
+
+  $('ci-up').onclick = () => $('ci-file').click();
+  $('ci-file').onchange = e => { const f = e.target.files[0]; if (f) loadSource(f); e.target.value = ''; };
+  $('ci-del').onclick = () => { ed.image = ''; ed.changed = true; ed.src = null; $('ci-url').value = ''; $('ci-cropbox').hidden = true; prev(); };
+  $('ci-url').addEventListener('change', e => {
+    const u = e.target.value.trim(); if (!u) return;
+    if (!/^https:\/\//.test(u)){ $('dlgErr').textContent = 'Link must start with https://'; return; }
+    ed.image = u; ed.changed = true; ed.src = null; $('ci-cropbox').hidden = true; prev();
+  });
+  const onPaste = e => {
+    if (!dlg.open || !$('ci-cv')) return document.removeEventListener('paste', onPaste);
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+    if (!item) return; e.preventDefault(); loadSource(item.getAsFile());
+  };
+  document.addEventListener('paste', onPaste);
+  dlg.addEventListener('close', () => document.removeEventListener('paste', onPaste), { once:true });
 }
 
 /* ================= SETTINGS ================= */
