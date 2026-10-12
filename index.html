@@ -664,7 +664,7 @@ const LS = {
 /* ===== Default config for the hosted (Render) site =====
    Put your Apps Script Web app URL here so players don't have to paste it.
    (Never put the secret key in this file — each person enters it in Settings.) */
-const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbziac9KzoIq9H_I8AjcADu0R_MiIQTxAzozeMo41Le2AeAPoSPA86nmrU9MfPub1qYD-w/exec';
+const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxuFnMaPtex36bKLylFa7g2sO60ai2TDaih7wQbLuBY4eNxdqGGh7XRnI3vGvN43Ji9lQ/exec';
 
 const settings = Object.assign({ apiUrl:'', key:'', recorder:'', lang:'eng', threshold:75, crop:null, engine:'hybrid' }, LS.get('bt.settings', {}));
 if (!settings.apiUrl && DEFAULT_API_URL) settings.apiUrl = DEFAULT_API_URL;
