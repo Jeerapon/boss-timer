@@ -236,6 +236,38 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
 .ptbar{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .ptbar i{display:block;height:6px;border-radius:3px;background:linear-gradient(90deg,#2f5fae,var(--accent));min-width:2px}
 .ptbar .track{width:90px;height:6px;border-radius:3px;background:#16263f;display:flex;justify-content:flex-start}
+.dash-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
+@media (max-width:860px){.dash-grid{grid-template-columns:1fr}}
+.dash-grid .chart-box{margin-bottom:0}
+.tierbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:#16263f;margin:6px 0 12px}
+.tierbar i{display:block;height:100%}
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.tierbtn{display:flex;align-items:center;gap:8px;background:#0c192e;border:1px solid var(--line);border-radius:5px;padding:7px 10px;cursor:pointer;text-align:left;font-size:13px}
+.tierbtn:hover{border-color:var(--line-2)}
+.tierbtn.on{border-color:var(--accent);background:#13274a}
+.tierbtn b{font-size:17px;margin-left:auto;font-variant-numeric:tabular-nums}
+.tierbtn .dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto}
+.tier{font-size:11.5px;padding:1px 8px;border-radius:10px;border:1px solid;white-space:nowrap;font-weight:600}
+.t-core{color:#ffcf6b;border-color:#7a5c1c;background:#2a2010}
+.t-active{color:#46d3a0;border-color:#2d6b57;background:#0f2a21}
+.t-casual{color:#7fb4ff;border-color:#2f4f80;background:#0f1f3a}
+.t-low{color:#ff9d7a;border-color:#6e3a26;background:#2a160f}
+.t-afk{color:#ff7d7d;border-color:#6b3040;background:#2a1220}
+.t-new{color:#a9b8d6;border-color:#3a4a68;background:#141e30}
+.mini{display:flex;flex-direction:column;gap:6px}
+.mini-row{display:grid;grid-template-columns:24px 1fr auto;gap:8px;align-items:center;font-size:13.5px}
+.mini-row .r{color:var(--muted);font-size:12px;text-align:right}
+.mini h4{margin:2px 0 4px;font-size:12.5px;color:var(--muted);font-weight:500}
+.mini h4.warn{color:var(--bad)}
+.rate{display:flex;align-items:center;gap:8px;justify-content:flex-end;white-space:nowrap}
+.rate .track{width:80px;height:6px;border-radius:3px;background:#16263f;overflow:hidden}
+.rate .track i{display:block;height:100%;border-radius:3px}
+.rate small{color:var(--muted);font-size:12px}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--text)}
+th.sortable.on{color:var(--accent)}
+.split{display:flex;gap:4px;justify-content:flex-end;font-variant-numeric:tabular-nums}
+.split span{min-width:44px;text-align:right}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#0b182c;border:1px solid var(--line);border-radius:4px;padding:9px 12px}
 .switch input{width:40px;height:22px;accent-color:var(--ok);cursor:pointer}
 
@@ -256,6 +288,7 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
     <button role="tab" aria-selected="true" data-view="record">Scan</button>
     <button role="tab" aria-selected="false" data-view="history">History</button>
     <button role="tab" aria-selected="false" data-view="recap">Leaderboard</button>
+    <button role="tab" aria-selected="false" data-view="dash">Dashboard</button>
     <button role="tab" aria-selected="false" data-view="admin">Admin</button>
     <button role="tab" aria-selected="false" data-view="settings">Settings</button>
   </nav>
@@ -426,6 +459,68 @@ dialog::backdrop{background:rgba(3,8,18,.7)}
         <table>
           <thead><tr><th>#</th><th>Player</th><th>Note</th><th>Status</th><th class="num">Points</th><th class="num">Boss</th><th class="num">Event</th><th class="num">Days</th><th class="num">DMG</th></tr></thead>
           <tbody id="recapBody"><tr><td colspan="9" class="note">Hit Refresh to load data</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= DASHBOARD ================= -->
+  <section class="view" id="view-dash">
+    <div class="panel">
+      <h2><span class="grow">Activity Dashboard</span>
+        <span class="seg" id="dashType">
+          <button data-t="boss" class="on">⚔ Boss Hunting</button><button data-t="event">🎪 Clan Events</button><button data-t="all">⭐ Overall</button>
+        </span>
+        <button class="btn small" id="btnCopyDash" title="Copy ranking for Discord">📋 Copy</button>
+        <button class="btn small" id="btnDash">↻ Refresh</button>
+      </h2>
+      <div class="period">
+        <div class="chips-row" id="dashPreset">
+          <button class="pchip" data-p="7d">Last 7 days</button>
+          <button class="pchip on" data-p="30d">Last 30 days</button>
+          <button class="pchip" data-p="month">This month</button>
+          <button class="pchip" data-p="lastmonth">Last month</button>
+          <button class="pchip" data-p="all">All time</button>
+        </div>
+        <span class="note" id="dashRange"></span>
+      </div>
+
+      <div class="stats">
+        <div class="stat a"><div class="k" id="dkRuns">Boss runs</div><div class="v" id="dRuns">-</div><div class="s" id="dRunsSub">&nbsp;</div></div>
+        <div class="stat b"><div class="k">Active players</div><div class="v" id="dPlayers">-</div><div class="s" id="dPlayersSub">&nbsp;</div></div>
+        <div class="stat c"><div class="k">Avg attendance</div><div class="v" id="dRate">-</div><div class="s" id="dRateSub">&nbsp;</div></div>
+        <div class="stat d"><div class="k">AFK members</div><div class="v" id="dAfk">-</div><div class="s" id="dAfkSub">&nbsp;</div></div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="chart-box">
+          <div class="chart-head"><span>Activity tiers · click to filter the table</span><span class="note">rate = runs joined ÷ runs since member joined</span></div>
+          <div class="tierbar" id="tierBar"></div>
+          <div class="tiers" id="tierList"></div>
+        </div>
+        <div class="chart-box">
+          <div class="mini" id="dashHighlights"></div>
+        </div>
+      </div>
+
+      <div class="chart-box" id="dashChartBox" hidden>
+        <div class="chart-head"><span id="dashChartTitle">Players per day</span>
+          <span class="legend"><span><i style="background:var(--accent)"></i>Boss</span><span><i style="background:var(--violet)"></i>Event</span></span></div>
+        <div class="chart" id="dashChart"></div>
+        <div class="xaxis" id="dashX"></div>
+      </div>
+
+      <div class="toolbar">
+        <input type="search" id="dashSearch" placeholder="Search name / Note…">
+        <select id="dashNote" aria-label="Filter by Note" style="width:auto" hidden></select>
+        <label class="note" style="display:flex;gap:6px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="dashHideInactive" checked> Hide inactive
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="dashHead"></thead>
+          <tbody id="dashBody"><tr><td class="note">Hit Refresh to load data</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -653,6 +748,7 @@ document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('cl
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + b.dataset.view));
   if (b.dataset.view === 'history') loadHistory();
   if (b.dataset.view === 'recap') loadRecap();
+  if (b.dataset.view === 'dash') loadDash();
 }));
 
 /* ================= API ================= */
@@ -703,7 +799,7 @@ async function loadAll(silent){
   }catch(e){ if (!silent) toast(e.message, 'bad'); return false; }
 }
 function renderAll(){
-  fillNoteSelect('noteFilter'); fillNoteSelect('memNote'); fillNoteSelect('recapNote');
+  fillNoteSelect('noteFilter'); fillNoteSelect('memNote'); fillNoteSelect('recapNote'); fillNoteSelect('dashNote');
   renderTargets(); renderMembers(); renderAdmin(); if (state.recap.length) renderRecap();
 }
 
@@ -1580,6 +1676,189 @@ $('btnCopyRecap').onclick = async () => {
   const medal = ['🥇','🥈','🥉'];
   const body = list.map((r, i) => `${medal[i] || (i+1) + '.'} ${r.name} — ${r.points} pts (Boss ${r.boss}${r.event ? ` · Event ${r.event}` : ''})`).join('\n');
   try { await navigator.clipboard.writeText(head + body); toast('Copied — paste it in Discord', 'ok'); }
+  catch { toast('Copy failed, try again', 'bad'); }
+};
+
+/* ================= DASHBOARD ================= */
+const TIERS = [
+  { k:'core',   label:'🔥 Core',  min:0.8,  color:'#ffcf6b', desc:'80%+' },
+  { k:'active', label:'Active',   min:0.5,  color:'#46d3a0', desc:'50–79%' },
+  { k:'casual', label:'Casual',   min:0.2,  color:'#7fb4ff', desc:'20–49%' },
+  { k:'low',    label:'Low',      min:0.0001, color:'#ff9d7a', desc:'1–19%' },
+  { k:'afk',    label:'AFK',      min:0,    color:'#ff7d7d', desc:'0 runs' }
+];
+state.dash = Object.assign({ type:'boss', preset:'30d', sort:'rate', dir:-1, tier:'' }, LS.get('bt.dash', {}));
+state.dash.tier = ''; state.dashData = null;
+const saveDash = () => LS.set('bt.dash', { type:state.dash.type, preset:state.dash.preset, sort:state.dash.sort, dir:state.dash.dir });
+
+// Per-player stats for the selected type (Overall = boss + event combined)
+function dashStat(p, t){
+  if (t !== 'all') return p[t];
+  const b = p.boss, e = p.event;
+  return { n:b.n+e.n, pts:b.pts+e.pts, dmg:b.dmg+e.dmg, last: b.last > e.last ? b.last : e.last,
+           days: Math.max(b.days, e.days), eligible:b.eligible+e.eligible };
+}
+function tierOf(st){
+  if (!st.eligible) return { k:'new', label:'New', color:'#a9b8d6' };
+  const r = st.n / st.eligible;
+  return TIERS.find(x => st.n === 0 ? x.k === 'afk' : r >= x.min && x.k !== 'afk');
+}
+const lastSeen = iso => {
+  if (!iso) return '—';
+  const d = Math.floor((Date.now() - new Date(iso)) / DAY);
+  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d}d ago`;
+};
+const pct = r => Math.round(r * 100) + '%';
+const rateColor = r => r >= .8 ? '#ffcf6b' : r >= .5 ? '#46d3a0' : r >= .2 ? '#7fb4ff' : r > 0 ? '#ff9d7a' : '#ff7d7d';
+
+segBind('dashType', 't', t => { state.dash.type = t; state.dash.tier = ''; saveDash(); renderDash(); });
+$('dashPreset').addEventListener('click', e => {
+  const b = e.target.closest('.pchip'); if (!b) return;
+  state.dash.preset = b.dataset.p; saveDash(); loadDash();
+});
+$('btnDash').onclick = () => loadDash();
+['dashSearch','dashNote','dashHideInactive'].forEach(id => $(id).addEventListener(id === 'dashSearch' ? 'input' : 'change', renderDash));
+(function initDashUI(){
+  $('dashType').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === state.dash.type));
+})();
+
+async function loadDash(){
+  $('dashPreset').querySelectorAll('.pchip').forEach(b => b.classList.toggle('on', b.dataset.p === state.dash.preset));
+  const [from, to] = presetRange(state.dash.preset);
+  state.dash.from = from; state.dash.to = to;
+  $('dashRange').textContent = !from ? 'All time' : `${shortTh(from)} – ${shortTh(to)}`;
+  const body = $('dashBody');
+  if (!settings.apiUrl){ body.innerHTML = `<tr><td class="note">Connect Google Sheet in Settings first</td></tr>`; return; }
+  body.innerHTML = `<tr><td class="note">Loading…</td></tr>`;
+  try {
+    const j = await apiGet('dashboard', { from, to });
+    if (!j.players) throw new Error('Code.gs is outdated: paste the new code and Deploy a new version');
+    state.dashData = j; renderDash();
+  } catch (e) { body.innerHTML = `<tr><td class="note">${esc(e.message)}</td></tr>`; }
+}
+
+function dashRows(){
+  const D = state.dashData; if (!D) return [];
+  const t = state.dash.type, hide = $('dashHideInactive').checked;
+  return D.players
+    .map(p => { const st = dashStat(p, t); return { ...p, st, tier: tierOf(st), rate: st.eligible ? st.n / st.eligible : 0, avg: st.n ? st.dmg / st.n : 0 }; })
+    .filter(p => !(hide && p.status === 'Inactive' && !p.st.n))
+    .filter(p => !(p.status === 'Unknown' && !p.st.n));
+}
+
+function renderDash(){
+  const D = state.dashData; if (!D) return;
+  const t = state.dash.type;
+  const nf = $('dashNote').value, q = lc($('dashSearch').value.trim());
+  const all = dashRows().filter(p => noteMatch((p.note || noteOf(p.name) || '').trim(), nf));
+  const runs = t === 'all' ? D.totals.boss + D.totals.event : D.totals[t];
+  const roster = all.filter(p => p.status !== 'Unknown' && p.tier.k !== 'new');
+
+  // KPI cards
+  $('dkRuns').textContent = t === 'boss' ? 'Boss runs' : t === 'event' ? 'Event runs' : 'Total runs';
+  $('dRuns').textContent = runs;
+  $('dRunsSub').textContent = t === 'all' ? `Boss ${D.totals.boss} · Event ${D.totals.event}` : `${D.days.filter(d => (d[t]||{}).runs).length} active days`;
+  const activeN = roster.filter(p => p.st.n > 0).length;
+  $('dPlayers').textContent = activeN;
+  $('dPlayersSub').textContent = `of ${roster.length} on roster`;
+  const avgRate = roster.length ? roster.reduce((a, p) => a + p.rate, 0) / roster.length : 0;
+  $('dRate').textContent = runs ? pct(avgRate) : '-';
+  $('dRateSub').textContent = runs ? `avg ${(all.reduce((a, p) => a + p.st.n, 0) / Math.max(1, runs)).toFixed(1)} players per run` : 'no runs in this period';
+  const afk = roster.filter(p => p.tier.k === 'afk');
+  $('dAfk').textContent = afk.length;
+  $('dAfkSub').textContent = runs ? 'joined 0 runs this period' : ' ';
+
+  // Tiers
+  const counts = Object.fromEntries(TIERS.map(x => [x.k, roster.filter(p => p.tier.k === x.k).length]));
+  const tot = Math.max(1, roster.length);
+  $('tierBar').innerHTML = TIERS.map(x => counts[x.k] ? `<i style="width:${counts[x.k]/tot*100}%;background:${x.color}" title="${x.label}: ${counts[x.k]}"></i>` : '').join('');
+  $('tierList').innerHTML = TIERS.map(x => `<button class="tierbtn${state.dash.tier === x.k ? ' on' : ''}" data-k="${x.k}">
+      <span class="dot" style="background:${x.color}"></span><span>${x.label}<br><span class="note" style="font-size:11.5px">${x.desc}</span></span><b>${counts[x.k]}</b></button>`).join('');
+
+  // Highlights: top 5 + needs attention
+  const top = [...roster].filter(p => p.st.n).sort((a, b) => b.rate - a.rate || b.st.n - a.st.n || b.st.pts - a.st.pts).slice(0, 5);
+  const warn = [...roster].sort((a, b) => a.rate - b.rate || (a.st.last || '') .localeCompare(b.st.last || '')).filter(p => p.rate < 0.2).slice(0, 5);
+  const medal = ['🥇','🥈','🥉','4','5'];
+  $('dashHighlights').innerHTML = `<h4>🏆 Most active</h4>${top.length ? top.map((p, i) => `<div class="mini-row"><span>${medal[i]}</span><span>${esc(p.name)} ${noteTag(p.note || noteOf(p.name))}</span><span class="r">${pct(p.rate)} · ${p.st.n}/${p.st.eligible}</span></div>`).join('') : '<div class="note">No data</div>'}
+    <h4 class="warn" style="margin-top:10px">⚠ Needs attention (under 20%)</h4>${warn.length ? warn.map(p => `<div class="mini-row"><span>·</span><span>${esc(p.name)} ${noteTag(p.note || noteOf(p.name))}</span><span class="r">${pct(p.rate)} · last ${lastSeen(p.st.last)}</span></div>`).join('') : '<div class="note">Everyone is pulling their weight 💪</div>'}`;
+
+  renderDashChart();
+
+  // Table
+  const cols = [
+    { k:'rank', h:'#' }, { k:'name', h:'Player', s:1 }, { k:'note', h:'Note' }, { k:'tier', h:'Tier' },
+    { k:'rate', h:'Attendance', s:1, num:1 }, { k:'pts', h:'Points', s:1, num:1 },
+    ...(t === 'all' ? [{ k:'split', h:'Boss / Event', num:1 }] : []),
+    { k:'dmg', h:'DMG', s:1, num:1 }, { k:'avg', h:'Avg DMG', s:1, num:1 },
+    { k:'days', h:'Days', s:1, num:1 }, { k:'last', h:'Last seen', s:1, num:1 }
+  ];
+  const sk = state.dash.sort, dir = state.dash.dir;
+  $('dashHead').innerHTML = `<tr>${cols.map(c => `<th class="${c.num?'num ':''}${c.s?'sortable':''}${c.k===sk?' on':''}" data-k="${c.k}">${c.h}${c.k===sk ? (dir<0?' ↓':' ↑') : ''}</th>`).join('')}</tr>`;
+  const val = p => ({ name: lc(p.name), rate: p.rate, pts: p.st.pts, dmg: p.st.dmg, avg: p.avg, days: p.st.days, last: p.st.last || '' })[sk];
+  // Rank is always by activity (rate, then runs, then points); sorting the table does not change rank
+  const ranked = [...all].sort((a, b) => b.rate - a.rate || b.st.n - a.st.n || b.st.pts - a.st.pts || byName(a.name, b.name));
+  ranked.forEach((p, i) => p.rank = i + 1);
+  let rows = ranked.filter(p => (!state.dash.tier || p.tier.k === state.dash.tier) && (!q || lc(p.name + ' ' + (p.note || '')).includes(q)));
+  if (sk !== 'rate') rows = rows.sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * dir || a.rank - b.rank; });
+  else if (dir > 0) rows = rows.reverse();
+  $('dashBody').innerHTML = rows.length ? rows.map(p => `<tr class="${p.status==='Inactive'?'dim':''}">
+      <td>${p.rank <= 3 && p.st.n ? `<span class="medal g${p.rank}">${p.rank}</span>` : p.rank}</td>
+      <td>${p.rank <= 3 && p.st.n ? `<b>${esc(p.name)}</b>` : esc(p.name)}${p.status==='Unknown' ? ' <span class="tag guest">Guest</span>' : ''}</td>
+      <td>${noteTag(p.note || noteOf(p.name)) || '<span class="note">-</span>'}</td>
+      <td><span class="tier t-${p.tier.k}">${p.tier.label}</span></td>
+      <td class="num"><div class="rate"><small>${p.st.n}/${p.st.eligible}</small><span class="track"><i style="width:${Math.round(p.rate*100)}%;background:${rateColor(p.rate)}"></i></span><b>${p.st.eligible ? pct(p.rate) : '-'}</b></div></td>
+      <td class="num"><b>${Math.round(p.st.pts*10)/10}</b></td>
+      ${t === 'all' ? `<td class="num"><div class="split"><span style="color:var(--accent)">${p.boss.n}/${p.boss.eligible}</span><span style="color:var(--violet)">${p.event.n}/${p.event.eligible}</span></div></td>` : ''}
+      <td class="num">${fmt(p.st.dmg) || '-'}</td>
+      <td class="num">${fmt(Math.round(p.avg)) || '-'}</td>
+      <td class="num">${p.st.days}</td>
+      <td class="num">${lastSeen(p.st.last)}</td></tr>`).join('')
+    : `<tr><td colspan="${cols.length}" class="note">No players match</td></tr>`;
+}
+$('tierList').addEventListener('click', e => {
+  const b = e.target.closest('.tierbtn'); if (!b) return;
+  state.dash.tier = state.dash.tier === b.dataset.k ? '' : b.dataset.k; renderDash();
+});
+$('dashHead').addEventListener('click', e => {
+  const th = e.target.closest('th.sortable'); if (!th) return;
+  const k = th.dataset.k;
+  if (state.dash.sort === k) state.dash.dir *= -1; else { state.dash.sort = k; state.dash.dir = k === 'name' ? 1 : -1; }
+  saveDash(); renderDash();
+});
+
+function renderDashChart(){
+  const D = state.dashData, t = state.dash.type;
+  let from = state.dash.from, to = state.dash.to;
+  if (!from && D.days.length){ from = D.days[0].date; to = D.days[D.days.length-1].date; }
+  $('dashChartBox').hidden = !from || !D.days.length;
+  if ($('dashChartBox').hidden) return;
+  let n = daysBetween(from, to); if (n > 92){ from = addDays(to, -91); n = 92; }
+  const by = Object.fromEntries(D.days.map(d => [d.date, d]));
+  const empty = { runs:0, players:0 };
+  const list = Array.from({ length:n }, (_, i) => { const k = addDays(from, i), d = by[k] || {}; return { date:k, boss:d.boss || empty, event:d.event || empty }; });
+  const v = d => t === 'boss' ? d.boss.players : t === 'event' ? d.event.players : d.boss.players + d.event.players;
+  const max = Math.max(1, ...list.map(v));
+  $('dashChartTitle').textContent = `Unique players per day · ${t === 'boss' ? 'Boss Hunting' : t === 'event' ? 'Clan Events' : 'Boss + Event'}`;
+  $('dashChart').innerHTML = list.map(d => {
+    const b = t === 'event' ? 0 : d.boss.players, e = t === 'boss' ? 0 : d.event.players, tot = b + e;
+    return `<div class="bar${tot?'':' zero'}" title="${longTh(d.date)}\nBoss: ${d.boss.runs} runs · ${d.boss.players} players\nEvent: ${d.event.runs} runs · ${d.event.players} players">
+      <span class="num">${tot || ''}</span>
+      <div class="stack" style="height:${Math.max(2, tot/max*110)}px"><div class="sb" style="flex:${b}"></div><div class="se" style="flex:${e}"></div></div></div>`;
+  }).join('');
+  const every = n > 45 ? 7 : n > 20 ? 3 : 1;
+  $('dashX').innerHTML = list.map((d, i) => { const dt = parseYmd(d.date), first = dt.getDate() === 1 || i === 0;
+    return `<span class="${first?'mo':''}">${i % every === 0 || first ? (first ? shortTh(d.date) : dt.getDate()) : ''}</span>`; }).join('');
+}
+
+$('btnCopyDash').onclick = async () => {
+  const rows = dashRows().filter(p => p.status !== 'Unknown' && p.tier.k !== 'new')
+    .sort((a, b) => b.rate - a.rate || b.st.n - a.st.n || b.st.pts - a.st.pts).slice(0, 15);
+  if (!rows.length){ toast('Nothing to copy yet', 'bad'); return; }
+  const name = { boss:'⚔ Boss Hunting', event:'🎪 Clan Events', all:'⭐ Overall' }[state.dash.type];
+  const medal = ['🥇','🥈','🥉'];
+  const txt = `📈 Activity · ${name} · ${$('dashRange').textContent}\n` +
+    rows.map((p, i) => `${medal[i] || (i+1) + '.'} ${p.name} — ${pct(p.rate)} (${p.st.n}/${p.st.eligible}) · ${Math.round(p.st.pts*10)/10} pts`).join('\n');
+  try { await navigator.clipboard.writeText(txt); toast('Copied — paste it in Discord', 'ok'); }
   catch { toast('Copy failed, try again', 'bad'); }
 };
 
